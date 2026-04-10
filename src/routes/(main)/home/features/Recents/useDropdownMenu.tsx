@@ -15,7 +15,7 @@ export const useRecentItemDropdownMenu = (
   item: RecentItem,
   toggleEditing: (visible?: boolean) => void,
 ) => {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'topic', 'components']);
   const { modal } = App.useApp();
   const removeTopic = useChatStore((s) => s.removeTopic);
   const [updateRecentTitle, removeRecent, refreshRecents] = useHomeStore((s) => [
@@ -46,6 +46,12 @@ export const useRecentItemDropdownMenu = (
   );
 
   const handleDelete = useCallback(() => {
+    const confirmMessages: Record<string, string> = {
+      document: t('FileManager.actions.confirmDelete', { ns: 'components' }),
+      file: t('FileManager.actions.confirmDelete', { ns: 'components' }),
+      topic: t('actions.confirmRemoveTopic', { ns: 'topic' }),
+    };
+
     modal.confirm({
       centered: true,
       okButtonProps: { danger: true },
@@ -68,7 +74,7 @@ export const useRecentItemDropdownMenu = (
         // Refresh to get accurate data from server
         await refreshRecents();
       },
-      title: t('delete'),
+      title: confirmMessages[item.type] || t('delete', { ns: 'common' }),
     });
   }, [item, modal, t, removeTopic, removeRecent, refreshRecents]);
 

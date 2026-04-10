@@ -10,6 +10,7 @@ import { memo, useCallback, useState } from 'react';
 
 import InlineRename from '@/components/InlineRename';
 import NavItem from '@/features/NavPanel/components/NavItem';
+import { usePrefetchAgent } from '@/hooks/usePrefetchAgent';
 import { type RecentItem } from '@/server/routers/lambda/recent';
 
 import { useRecentItemDropdownMenu } from './useDropdownMenu';
@@ -22,13 +23,18 @@ const TYPE_ICON_MAP = {
 };
 
 const RecentListItem = memo<RecentItem>((item) => {
-  const { title, type } = item;
+  const { title, type, agentId } = item;
   const IconComponent = TYPE_ICON_MAP[type] || FileIcon;
   const [editing, setEditing] = useState(false);
+  const prefetchAgent = usePrefetchAgent();
 
   const toggleEditing = useCallback((visible?: boolean) => {
     setEditing(!!visible);
   }, []);
+
+  const handleMouseEnter = useCallback(() => {
+    if (agentId) prefetchAgent(agentId);
+  }, [agentId, prefetchAgent]);
 
   const { dropdownMenu, handleRename } = useRecentItemDropdownMenu(item, toggleEditing);
 
@@ -44,6 +50,7 @@ const RecentListItem = memo<RecentItem>((item) => {
             <ActionIcon icon={MoreHorizontalIcon} size={'small'} style={{ flex: 'none' }} />
           </DropdownMenu>
         }
+        onMouseEnter={handleMouseEnter}
       />
       <InlineRename
         open={editing}

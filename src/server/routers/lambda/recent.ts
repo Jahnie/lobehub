@@ -5,6 +5,7 @@ import { authedProcedure, router } from '@/libs/trpc/lambda';
 import { serverDatabase } from '@/libs/trpc/lambda/middleware';
 
 export interface RecentItem {
+  agentId?: string | null;
   icon: string;
   id: string;
   routePath: string;
@@ -55,6 +56,7 @@ export const recentRouter = router({
         }
 
         return {
+          agentId: item.routeId,
           icon: item.type,
           id: item.id,
           routePath,
