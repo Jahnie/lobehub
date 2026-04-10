@@ -427,6 +427,7 @@ export default {
   'navPanel.moveUp': 'Move up',
   'navPanel.show': 'Show',
   'navPanel.searchAgent': 'Search Agent...',
+  'navPanel.searchRecent': 'Search Recent...',
   'navPanel.searchResultEmpty': 'No search results found',
   'new': 'New',
   'pro': 'Pro',

@@ -350,6 +350,7 @@
   "navPanel.moveDown": "Move down",
   "navPanel.moveUp": "Move up",
   "navPanel.searchAgent": "Search Agent...",
+  "navPanel.searchRecent": "Search Recent...",
   "navPanel.searchResultEmpty": "No search results found",
   "navPanel.show": "Show",
   "new": "New",
