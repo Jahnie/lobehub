@@ -38,8 +38,8 @@ export class RecentActionImpl {
     limit: number = 10,
   ): SWRResponse<RecentItem[]> => {
     return useClientDataSWRWithSync<RecentItem[]>(
-      isLogin === true ? [FETCH_RECENTS_KEY, isLogin, limit] : null,
-      async () => recentService.getAll(limit),
+      isLogin === true ? [FETCH_RECENTS_KEY, isLogin] : null,
+      async () => recentService.getAll(Math.max(limit, 50)),
       {
         onData: (data) => {
           if (this.#get().isRecentsInit && isEqual(this.#get().recents, data)) return;

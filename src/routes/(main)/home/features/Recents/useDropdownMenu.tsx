@@ -1,0 +1,88 @@
+import { type MenuProps } from '@lobehub/ui';
+import { Icon } from '@lobehub/ui';
+import { App } from 'antd';
+import { PencilLineIcon, Trash } from 'lucide-react';
+import { useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
+
+import { mutate } from '@/libs/swr';
+import { type RecentItem } from '@/server/routers/lambda/recent';
+import { fileService } from '@/services/file';
+import { topicService } from '@/services/topic';
+import { useChatStore } from '@/store/chat';
+
+export const useRecentItemDropdownMenu = (
+  item: RecentItem,
+  toggleEditing: (visible?: boolean) => void,
+) => {
+  const { t } = useTranslation('common');
+  const { modal } = App.useApp();
+  const removeTopic = useChatStore((s) => s.removeTopic);
+
+  const handleRename = useCallback(
+    async (newTitle: string) => {
+      switch (item.type) {
+        case 'topic': {
+          await topicService.updateTopic(item.id, { title: newTitle });
+          break;
+        }
+        case 'document':
+        case 'file': {
+          await fileService.updateFile(item.id, { name: newTitle });
+          break;
+        }
+      }
+      // Refresh recents list
+      await mutate((key: any) => Array.isArray(key) && key[0] === 'fetchRecents');
+    },
+    [item],
+  );
+
+  const handleDelete = useCallback(() => {
+    modal.confirm({
+      centered: true,
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        switch (item.type) {
+          case 'topic': {
+            await removeTopic(item.id);
+            break;
+          }
+          case 'document':
+          case 'file': {
+            await fileService.removeFile(item.id);
+            break;
+          }
+        }
+        await mutate((key: any) => Array.isArray(key) && key[0] === 'fetchRecents');
+      },
+      title: t('delete'),
+    });
+  }, [item, modal, t, removeTopic]);
+
+  const dropdownMenu = useCallback((): MenuProps['items'] => {
+    const canRename = item.type !== 'task';
+
+    return [
+      ...(canRename
+        ? [
+            {
+              icon: <Icon icon={PencilLineIcon} />,
+              key: 'rename',
+              label: t('rename'),
+              onClick: () => toggleEditing(true),
+            },
+          ]
+        : []),
+      {
+        danger: true,
+        icon: <Icon icon={Trash} />,
+        key: 'delete',
+        label: t('delete'),
+        onClick: handleDelete,
+      },
+    ];
+  }, [item.type, t, toggleEditing, handleDelete]);
+
+  return { dropdownMenu, handleRename };
+};

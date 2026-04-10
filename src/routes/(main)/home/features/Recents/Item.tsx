@@ -1,8 +1,18 @@
-import { CheckSquareIcon, FileIcon, FileTextIcon, HashIcon } from 'lucide-react';
-import { memo } from 'react';
+import { ActionIcon, DropdownMenu, Flexbox } from '@lobehub/ui';
+import {
+  CheckSquareIcon,
+  FileIcon,
+  FileTextIcon,
+  HashIcon,
+  MoreHorizontalIcon,
+} from 'lucide-react';
+import { memo, useCallback, useState } from 'react';
 
+import InlineRename from '@/components/InlineRename';
 import NavItem from '@/features/NavPanel/components/NavItem';
 import { type RecentItem } from '@/server/routers/lambda/recent';
+
+import { useRecentItemDropdownMenu } from './useDropdownMenu';
 
 const TYPE_ICON_MAP = {
   document: FileTextIcon,
@@ -11,10 +21,38 @@ const TYPE_ICON_MAP = {
   topic: HashIcon,
 };
 
-const RecentListItem = memo<RecentItem>(({ title, type }) => {
+const RecentListItem = memo<RecentItem>((item) => {
+  const { title, type } = item;
   const IconComponent = TYPE_ICON_MAP[type] || FileIcon;
+  const [editing, setEditing] = useState(false);
 
-  return <NavItem icon={IconComponent} title={title} />;
+  const toggleEditing = useCallback((visible?: boolean) => {
+    setEditing(!!visible);
+  }, []);
+
+  const { dropdownMenu, handleRename } = useRecentItemDropdownMenu(item, toggleEditing);
+
+  return (
+    <Flexbox style={{ position: 'relative' }}>
+      <NavItem
+        contextMenuItems={dropdownMenu}
+        disabled={editing}
+        icon={IconComponent}
+        title={title}
+        actions={
+          <DropdownMenu items={dropdownMenu()} nativeButton={false}>
+            <ActionIcon icon={MoreHorizontalIcon} size={'small'} style={{ flex: 'none' }} />
+          </DropdownMenu>
+        }
+      />
+      <InlineRename
+        open={editing}
+        title={title}
+        onOpenChange={(open) => toggleEditing(open)}
+        onSave={handleRename}
+      />
+    </Flexbox>
+  );
 });
 
 export default RecentListItem;
