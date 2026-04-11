@@ -1,6 +1,7 @@
 import type { ILobeAgentRuntimeErrorType } from '../types/error';
 import { AgentRuntimeErrorType } from '../types/error';
 import { isExceededContextWindowError } from './isExceededContextWindowError';
+import { isModelNotFoundError } from './isModelNotFoundError';
 import { isQuotaLimitError } from './isQuotaLimitError';
 
 export interface ParsedError {
@@ -110,6 +111,10 @@ export function parseGoogleErrorMessage(message: string): ParsedError {
   const lowerMessage = message.toLowerCase();
   if (lowerMessage.includes('no image generated') || lowerMessage.includes('no image data')) {
     return { error: { message }, errorType: AgentRuntimeErrorType.ProviderNoImageGenerated };
+  }
+
+  if (isModelNotFoundError(message)) {
+    return { error: { message }, errorType: AgentRuntimeErrorType.ModelNotFound };
   }
 
   if (isExceededContextWindowError(message)) {

@@ -22,6 +22,7 @@ import { desensitizeUrl } from '../../utils/desensitizeUrl';
 import { getModelPricing } from '../../utils/getModelPricing';
 import { isAccountDeactivatedError } from '../../utils/isAccountDeactivatedError';
 import { isExceededContextWindowError } from '../../utils/isExceededContextWindowError';
+import { isModelNotFoundError } from '../../utils/isModelNotFoundError';
 import { isQuotaLimitError } from '../../utils/isQuotaLimitError';
 import { MODEL_LIST_CONFIGS, processModelList } from '../../utils/modelParse';
 import { StreamingResponse } from '../../utils/response';
@@ -328,6 +329,15 @@ export const handleDefaultAnthropicError = <T extends Record<string, any> = any>
       endpoint: desensitizedEndpoint,
       error: errorResult,
       errorType: AgentRuntimeErrorType.AccountDeactivated,
+      message,
+    };
+  }
+
+  if (isModelNotFoundError(errorMsg)) {
+    return {
+      endpoint: desensitizedEndpoint,
+      error: errorResult,
+      errorType: AgentRuntimeErrorType.ModelNotFound,
       message,
     };
   }
@@ -731,6 +741,16 @@ export const createAnthropicCompatibleRuntime = <T extends Record<string, any> =
           endpoint: desensitizedEndpoint,
           error: errorResult,
           errorType: AgentRuntimeErrorType.AccountDeactivated,
+          message,
+          provider: this.id,
+        });
+      }
+
+      if (isModelNotFoundError(errorMsg)) {
+        return AgentRuntimeError.chat({
+          endpoint: desensitizedEndpoint,
+          error: errorResult,
+          errorType: AgentRuntimeErrorType.ModelNotFound,
           message,
           provider: this.id,
         });

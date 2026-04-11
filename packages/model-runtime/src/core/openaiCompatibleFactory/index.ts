@@ -42,6 +42,7 @@ import { handleOpenAIError } from '../../utils/handleOpenAIError';
 import { isAccountDeactivatedError } from '../../utils/isAccountDeactivatedError';
 import { isExceededContextWindowError } from '../../utils/isExceededContextWindowError';
 import { isInsufficientQuotaError } from '../../utils/isInsufficientQuotaError';
+import { isModelNotFoundError } from '../../utils/isModelNotFoundError';
 import { isQuotaLimitError } from '../../utils/isQuotaLimitError';
 import { postProcessModelList } from '../../utils/postProcessModelList';
 import {
@@ -1151,6 +1152,17 @@ export const createOpenAICompatibleRuntime = <T extends Record<string, any> = an
           endpoint: desensitizedEndpoint,
           error: errorResult,
           errorType: AgentRuntimeErrorType.AccountDeactivated,
+          message,
+          provider: this.id,
+        });
+      }
+
+      if (isModelNotFoundError(errorMsg)) {
+        log('model not found error detected from message');
+        return AgentRuntimeError.chat({
+          endpoint: desensitizedEndpoint,
+          error: errorResult,
+          errorType: AgentRuntimeErrorType.ModelNotFound,
           message,
           provider: this.id,
         });
