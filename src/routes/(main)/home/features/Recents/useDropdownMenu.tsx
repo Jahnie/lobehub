@@ -58,7 +58,7 @@ export const useRecentItemDropdownMenu = (
       onOk: async () => {
         switch (item.type) {
           case 'topic': {
-            // Home 没有 activeAgentId/activeGroupId，chat 的 removeTopic 会提前 return，直接调服务
+            // Home has no active agent/group, so chatStore.removeTopic early-returns; call the service directly
             await topicService.removeTopic(item.id);
             break;
           }
