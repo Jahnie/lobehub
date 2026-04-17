@@ -6,9 +6,11 @@ import type {
   ConversationContext,
   HeterogeneousProviderConfig,
 } from '@lobechat/types';
+import { ThreadStatus, ThreadType } from '@lobechat/types';
 
 import { heterogeneousAgentService } from '@/services/electron/heterogeneousAgent';
 import { messageService } from '@/services/message';
+import { threadService } from '@/services/thread';
 import type { ChatStore } from '@/store/chat/store';
 
 import { createGatewayEventHandler } from './gatewayEventHandler';
@@ -190,6 +192,269 @@ const persistNewToolCalls = async (
   }
 };
 
+// ─── Subagent (CC `Agent` tool spawn) ───
+//
+// Claude Code's `Agent` tool spawns a subagent that runs its own intermediate
+// tools and returns a synthesized answer via the outer Agent tool_result.
+// We map that shape onto LobeHub's existing `role:'task'` + Thread model
+// (the same one GTD / callAgent use), so the whole subagent interaction
+// renders through `ClientTaskItem` / `TaskMessages` — no bespoke UI needed.
+//
+// State per Agent tool_use id:
+interface SubagentTaskState {
+  /** Count of child tool_use events seen (for TaskDetail.totalToolCalls) */
+  childToolCount: number;
+  /** Set of child tool_use ids belonging to this subagent (for tool_result routing) */
+  childToolIds: Set<string>;
+  /** Input.prompt text — captured for task.metadata.instruction */
+  instruction: string;
+  /** CC `Agent` tool_use.id — the outer tool this subagent belongs to */
+  parentToolUseId: string;
+  /** ms timestamp when the Agent tool_use was first seen */
+  startedAt: number;
+  /** Placeholder message in the MAIN topic (role:'task') that anchors TaskItem */
+  taskMessageId: string;
+  /** Assistant bubble inside the Thread that hosts the subagent's tools[] */
+  threadAssistantMessageId: string;
+  /** Thread id hosting the subagent conversation */
+  threadId: string;
+  /** 3-phase tool-persistence state scoped to the Thread */
+  threadToolState: ToolPersistenceState;
+}
+
+/**
+ * Create a `role:'task'` placeholder in the main topic + an Isolation Thread,
+ * seeded with a user message carrying the subagent's prompt and an empty
+ * assistant message ready to host the subagent's child tool calls.
+ *
+ * Mirrors `ClientTaskItem`'s expectations so the existing Task UI picks this
+ * up without any per-provider branching.
+ */
+const createSubagentTaskAndThread = async (
+  tool: ToolCallPayload,
+  parentAssistantMessageId: string,
+  context: ConversationContext,
+): Promise<SubagentTaskState | undefined> => {
+  // Parse the Agent tool input — CC emits `{ description, subagent_type, prompt }`
+  let input: { description?: string; prompt?: string; subagent_type?: string } = {};
+  try {
+    input = JSON.parse(tool.arguments || '{}');
+  } catch {
+    // best-effort — leave input empty
+  }
+
+  const title = input.description || 'Subagent task';
+  const instruction = input.prompt || '';
+  const subagentType = input.subagent_type;
+  const startedAt = Date.now();
+
+  try {
+    // 1. Task placeholder in the main topic
+    const taskMsg = await messageService.createMessage({
+      agentId: context.agentId,
+      content: '',
+      metadata: {
+        instruction,
+        taskTitle: title,
+        // `ClientTaskItem` reads targetAgentId to show the subagent's label.
+        // For CC we stash the `subagent_type` string here instead of a real
+        // agent id — UI just displays it verbatim.
+        ...(subagentType ? { targetAgentId: subagentType } : {}),
+      } as any,
+      parentId: parentAssistantMessageId,
+      role: 'task',
+      tool_call_id: tool.id,
+      topicId: context.topicId ?? undefined,
+    });
+
+    // 2. Thread + initial user message carrying the instruction
+    const { threadId } = await threadService.createThreadWithMessage({
+      message: {
+        agentId: context.agentId,
+        content: instruction || title,
+        role: 'user',
+      } as any,
+      metadata: { clientMode: true, startedAt: new Date(startedAt).toISOString() },
+      sourceMessageId: taskMsg.id,
+      status: ThreadStatus.Processing,
+      topicId: context.topicId!,
+      type: ThreadType.Isolation,
+    });
+
+    // 3. Assistant bubble inside the thread — will host the child tools[]
+    // and receive the final text when the outer Agent tool_result arrives.
+    const threadAssistant = await messageService.createMessage({
+      agentId: context.agentId,
+      content: '',
+      role: 'assistant',
+      threadId,
+      topicId: context.topicId ?? undefined,
+    });
+
+    // 4. Best-effort: make sure the thread is marked Processing even if the
+    // server createThreadWithMessage didn't forward the status field.
+    void threadService.updateThread(threadId, { status: ThreadStatus.Processing }).catch(() => {});
+
+    return {
+      childToolCount: 0,
+      childToolIds: new Set(),
+      instruction,
+      parentToolUseId: tool.id,
+      startedAt,
+      taskMessageId: taskMsg.id,
+      threadAssistantMessageId: threadAssistant.id,
+      threadId,
+      threadToolState: { payloads: [], persistedIds: new Set(), toolMsgIdByCallId: new Map() },
+    };
+  } catch (err) {
+    console.error('[HeterogeneousAgent] Failed to create subagent task/thread:', err);
+    return undefined;
+  }
+};
+
+/**
+ * Persist a child tool_use emitted by a subagent into its Thread scope, using
+ * the same 3-phase protocol as main-agent tools — just pointed at the
+ * thread's assistant bubble instead of the main one.
+ */
+const persistSubagentChildTool = async (
+  tool: ToolCallPayload,
+  sub: SubagentTaskState,
+  context: ConversationContext,
+) => {
+  if (sub.threadToolState.persistedIds.has(tool.id)) return;
+  sub.threadToolState.persistedIds.add(tool.id);
+  sub.childToolIds.add(tool.id);
+  sub.childToolCount += 1;
+
+  sub.threadToolState.payloads.push({ ...tool } as ChatToolPayload);
+  try {
+    await messageService.updateMessage(
+      sub.threadAssistantMessageId,
+      { tools: sub.threadToolState.payloads },
+      { agentId: context.agentId, topicId: context.topicId },
+    );
+  } catch (err) {
+    console.error('[HeterogeneousAgent] Failed to pre-register subagent tool:', err);
+  }
+
+  try {
+    const result = await messageService.createMessage({
+      agentId: context.agentId,
+      content: '',
+      parentId: sub.threadAssistantMessageId,
+      plugin: {
+        apiName: tool.apiName,
+        arguments: tool.arguments,
+        identifier: tool.identifier,
+        type: tool.type as ChatToolPayload['type'],
+      },
+      role: 'tool',
+      threadId: sub.threadId,
+      tool_call_id: tool.id,
+      topicId: context.topicId ?? undefined,
+    });
+    sub.threadToolState.toolMsgIdByCallId.set(tool.id, result.id);
+    const entry = sub.threadToolState.payloads.find((p) => p.id === tool.id);
+    if (entry) entry.result_msg_id = result.id;
+  } catch (err) {
+    console.error('[HeterogeneousAgent] Failed to create subagent tool message:', err);
+  }
+
+  try {
+    await messageService.updateMessage(
+      sub.threadAssistantMessageId,
+      { tools: sub.threadToolState.payloads },
+      { agentId: context.agentId, topicId: context.topicId },
+    );
+  } catch (err) {
+    console.error('[HeterogeneousAgent] Failed to finalize subagent tools:', err);
+  }
+};
+
+/**
+ * Normalize an Agent tool_result content blob into plain text. CC's
+ * tool_result content is usually an array of `{ type: 'text', text }` blocks.
+ */
+const extractSubagentFinalText = (raw: unknown): string => {
+  if (typeof raw === 'string') return raw;
+  if (Array.isArray(raw)) {
+    return raw
+      .map((c: any) => (typeof c === 'string' ? c : c?.text || c?.content || ''))
+      .filter(Boolean)
+      .join('\n');
+  }
+  try {
+    return JSON.stringify(raw ?? '');
+  } catch {
+    return '';
+  }
+};
+
+/**
+ * Outer Agent tool_result arrived — the subagent is done. Write the final
+ * synthesized text into the thread's assistant bubble and stamp the task
+ * placeholder's TaskDetail with status / duration / tool count so
+ * `ClientTaskItem` flips to the "completed" view.
+ */
+const finalizeSubagentTask = async (
+  sub: SubagentTaskState,
+  resultContent: string,
+  isError: boolean,
+  context: ConversationContext,
+) => {
+  const finishedAt = Date.now();
+  const duration = finishedAt - sub.startedAt;
+  const status = isError ? ThreadStatus.Failed : ThreadStatus.Completed;
+
+  // Thread: write the synthesized final text onto the assistant bubble, then
+  // mark thread completed. TaskMessages' CompletedView picks the last block
+  // as the "final result".
+  if (resultContent) {
+    await messageService
+      .updateMessage(
+        sub.threadAssistantMessageId,
+        { content: resultContent },
+        { agentId: context.agentId, topicId: context.topicId },
+      )
+      .catch((err) => console.error('[HeterogeneousAgent] Failed to write subagent final:', err));
+  }
+
+  await threadService
+    .updateThread(sub.threadId, {
+      metadata: {
+        clientMode: true,
+        completedAt: new Date(finishedAt).toISOString(),
+        duration,
+        startedAt: new Date(sub.startedAt).toISOString(),
+        totalToolCalls: sub.childToolCount,
+      },
+      status,
+    })
+    .catch((err) => console.error('[HeterogeneousAgent] Failed to update thread:', err));
+
+  // Task placeholder: TaskDetail powers the TaskItem header (status pill,
+  // duration, tool-call count). Writing via updateMessage keeps the existing
+  // metadata merge path.
+  await messageService
+    .updateMessage(
+      sub.taskMessageId,
+      {
+        metadata: {
+          taskDetail: {
+            duration,
+            status,
+            threadId: sub.threadId,
+            title: sub.instruction.slice(0, 60),
+            totalToolCalls: sub.childToolCount,
+          },
+        } as any,
+      },
+      { agentId: context.agentId, topicId: context.topicId },
+    )
+    .catch((err) => console.error('[HeterogeneousAgent] Failed to update task detail:', err));
+};
+
 /**
  * Update a tool message's content in DB when tool_result arrives.
  */
@@ -269,6 +534,15 @@ export const executeHeterogeneousAgent = async (
     persistedIds: new Set(),
     toolMsgIdByCallId: new Map(),
   };
+  /**
+   * Running subagent tasks keyed by the outer CC Agent tool_use id. Populated
+   * when we intercept an `Agent` tool_use; looked up when routing subsequent
+   * subagent child tool_use / tool_result events and when the outer
+   * tool_result arrives to finalize the task.
+   */
+  const subagentTasks = new Map<string, SubagentTaskState>();
+  /** Reverse index childToolId → parentToolUseId for tool_result routing. */
+  const childToolIdToParent = new Map<string, string>();
   /** Serializes async persist operations so ordering is stable. */
   let persistQueue: Promise<void> = Promise.resolve();
   /** Tracks the current assistant message being written to (switches on new steps) */
@@ -324,6 +598,30 @@ export const executeHeterogeneousAgent = async (
     const sidForCancel = agentSessionId;
     get().onOperationCancel?.(operationId, () => {
       heterogeneousAgentService.cancelSession(sidForCancel).catch(() => {});
+      // Also mark any in-flight subagent threads as cancelled so the TaskItem
+      // UI flips out of "processing" instead of spinning indefinitely.
+      for (const sub of subagentTasks.values()) {
+        void threadService
+          .updateThread(sub.threadId, { status: ThreadStatus.Cancel })
+          .catch(() => {});
+        void messageService
+          .updateMessage(
+            sub.taskMessageId,
+            {
+              metadata: {
+                taskDetail: {
+                  duration: Date.now() - sub.startedAt,
+                  status: ThreadStatus.Cancel,
+                  threadId: sub.threadId,
+                  totalToolCalls: sub.childToolCount,
+                },
+              } as any,
+            },
+            { agentId: context.agentId, topicId: context.topicId },
+          )
+          .catch(() => {});
+      }
+      subagentTasks.clear();
     });
 
     // ─── Debug tracing (dev only) ───
@@ -355,9 +653,34 @@ export const executeHeterogeneousAgent = async (
               isError?: boolean;
               toolCallId: string;
             };
-            persistQueue = persistQueue.then(() =>
-              persistToolResult(toolCallId, content, !!isError, toolState, context),
-            );
+            // Dispatch *inside* persistQueue so the lookup sees the post-creation
+            // state of `subagentTasks`: the Agent tool_use's task+thread setup
+            // runs as an earlier queue job, and the tool_result may arrive on
+            // the very next raw line before that async setup resolves.
+            //
+            // Three routes:
+            //   1. outer `Agent` tool_result — finalize the subagent task
+            //   2. subagent child tool_result — update tool msg in the thread
+            //   3. normal main-agent tool_result — existing flow
+            persistQueue = persistQueue.then(() => {
+              if (subagentTasks.has(toolCallId)) {
+                const sub = subagentTasks.get(toolCallId)!;
+                subagentTasks.delete(toolCallId);
+                return finalizeSubagentTask(sub, content, !!isError, context);
+              }
+              const parentId = childToolIdToParent.get(toolCallId);
+              if (parentId && subagentTasks.has(parentId)) {
+                const sub = subagentTasks.get(parentId)!;
+                return persistToolResult(
+                  toolCallId,
+                  content,
+                  !!isError,
+                  sub.threadToolState,
+                  context,
+                );
+              }
+              return persistToolResult(toolCallId, content, !!isError, toolState, context);
+            });
             // Don't forward — the tool_end that follows triggers fetchAndReplaceMessages
             // which reads the updated content from DB.
             continue;
@@ -487,9 +810,56 @@ export const executeHeterogeneousAgent = async (
             if (chunk?.chunkType === 'tools_calling') {
               const tools = chunk.toolsCalling as ToolCallPayload[];
               if (tools?.length) {
-                persistQueue = persistQueue.then(() =>
-                  persistNewToolCalls(tools, toolState, currentAssistantMessageId, context),
-                );
+                // Split tools into three lanes:
+                //   1. `Agent` tool_use (no parent) — spawn a task+thread
+                //   2. subagent child tool_use (has parentToolCallId) — persist in thread scope
+                //   3. regular main-agent tools — existing flow
+                const mainTools: ToolCallPayload[] = [];
+                const agentSpawns: ToolCallPayload[] = [];
+                const subagentChildren: ToolCallPayload[] = [];
+                for (const t of tools) {
+                  if (t.parentToolCallId) {
+                    childToolIdToParent.set(t.id, t.parentToolCallId);
+                    subagentChildren.push(t);
+                  } else if (t.apiName === 'Agent') {
+                    agentSpawns.push(t);
+                  } else {
+                    mainTools.push(t);
+                  }
+                }
+
+                if (mainTools.length > 0) {
+                  persistQueue = persistQueue.then(() =>
+                    persistNewToolCalls(mainTools, toolState, currentAssistantMessageId, context),
+                  );
+                }
+
+                for (const spawn of agentSpawns) {
+                  persistQueue = persistQueue.then(async () => {
+                    if (subagentTasks.has(spawn.id)) return;
+                    const sub = await createSubagentTaskAndThread(
+                      spawn,
+                      currentAssistantMessageId,
+                      context,
+                    );
+                    if (sub) subagentTasks.set(spawn.id, sub);
+                  });
+                }
+
+                for (const child of subagentChildren) {
+                  persistQueue = persistQueue.then(async () => {
+                    const parentId = child.parentToolCallId!;
+                    const sub = subagentTasks.get(parentId);
+                    if (!sub) {
+                      console.warn(
+                        '[HeterogeneousAgent] Subagent child with unknown parent:',
+                        parentId,
+                      );
+                      return;
+                    }
+                    await persistSubagentChildTool(child, sub, context);
+                  });
+                }
               }
             }
           }

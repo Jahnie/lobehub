@@ -34,14 +34,27 @@ vi.mock('@/services/message', () => ({
 const mockStartSession = vi.fn();
 const mockSendPrompt = vi.fn();
 const mockStopSession = vi.fn();
+const mockCancelSession = vi.fn();
 const mockGetSessionInfo = vi.fn();
 
 vi.mock('@/services/electron/heterogeneousAgent', () => ({
   heterogeneousAgentService: {
+    cancelSession: (...args: any[]) => mockCancelSession(...args),
     getSessionInfo: (...args: any[]) => mockGetSessionInfo(...args),
     sendPrompt: (...args: any[]) => mockSendPrompt(...args),
     startSession: (...args: any[]) => mockStartSession(...args),
     stopSession: (...args: any[]) => mockStopSession(...args),
+  },
+}));
+
+// threadService — subagent path creates Thread + updates on finalize
+const mockCreateThreadWithMessage = vi.fn();
+const mockUpdateThread = vi.fn();
+
+vi.mock('@/services/thread', () => ({
+  threadService: {
+    createThreadWithMessage: (...args: any[]) => mockCreateThreadWithMessage(...args),
+    updateThread: (...args: any[]) => mockUpdateThread(...args),
   },
 }));
 
@@ -155,6 +168,62 @@ const ccToolResult = (toolUseId: string, content: string, isError = false) => ({
   type: 'user',
 });
 
+// ─── Subagent (CC `Agent` tool) event factories ───
+const ccAgentSpawn = (
+  msgId: string,
+  toolId: string,
+  input: { description?: string; prompt?: string; subagent_type?: string } = {},
+) => ccAssistant(msgId, [{ id: toolId, input, name: 'Agent', type: 'tool_use' }]);
+
+const ccSubagentToolUse = (
+  msgId: string,
+  parentToolUseId: string,
+  toolId: string,
+  name: string,
+  input: any = {},
+) => ({
+  message: {
+    content: [{ id: toolId, input, name, type: 'tool_use' }],
+    id: msgId,
+    role: 'assistant',
+  },
+  parent_tool_use_id: parentToolUseId,
+  type: 'assistant',
+});
+
+const ccSubagentToolResult = (
+  parentToolUseId: string,
+  toolUseId: string,
+  content: string,
+  isError = false,
+) => ({
+  message: {
+    content: [{ content, is_error: isError, tool_use_id: toolUseId, type: 'tool_result' }],
+    role: 'user',
+  },
+  parent_tool_use_id: parentToolUseId,
+  type: 'user',
+});
+
+/**
+ * Outer Agent tool_result delivering the subagent's synthesized final text
+ * back to the main agent. CC wraps this in an array of text blocks.
+ */
+const ccAgentResult = (toolUseId: string, finalText: string, isError = false) => ({
+  message: {
+    content: [
+      {
+        content: [{ text: finalText, type: 'text' }],
+        is_error: isError,
+        tool_use_id: toolUseId,
+        type: 'tool_result',
+      },
+    ],
+    role: 'user',
+  },
+  type: 'user',
+});
+
 const ccResult = (isError = false, result = 'done') => ({
   is_error: isError,
   result,
@@ -179,6 +248,12 @@ describe('heterogeneousAgentExecutor DB persistence', () => {
     }));
     mockUpdateMessage.mockResolvedValue(undefined);
     mockUpdateToolMessage.mockResolvedValue(undefined);
+    mockCancelSession.mockResolvedValue(undefined);
+    mockCreateThreadWithMessage.mockImplementation(async () => ({
+      messageId: `thread-msg-${Math.random().toString(36).slice(2, 6)}`,
+      threadId: `thread-${Math.random().toString(36).slice(2, 6)}`,
+    }));
+    mockUpdateThread.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -999,6 +1074,144 @@ describe('heterogeneousAgentExecutor DB persistence', () => {
         ([, val]: any) => val.content === 'Fixed the bug in app.ts.',
       );
       expect(finalContentWrite).toBeDefined();
+    });
+  });
+
+  // ────────────────────────────────────────────────────
+  // Subagent routing (CC `Agent` tool spawn → task + Thread)
+  // ────────────────────────────────────────────────────
+
+  describe('subagent task + thread routing', () => {
+    beforeEach(() => {
+      // Deterministic ids so downstream assertions can address them
+      let threadCounter = 0;
+      mockCreateThreadWithMessage.mockImplementation(async () => {
+        threadCounter++;
+        return { messageId: `thread-user-${threadCounter}`, threadId: `thread-${threadCounter}` };
+      });
+      let msgCounter = 0;
+      mockCreateMessage.mockImplementation(async (params: any) => {
+        msgCounter++;
+        return { id: `${params.role}-msg-${msgCounter}` };
+      });
+    });
+
+    it('creates role:task placeholder + Thread on Agent tool_use', async () => {
+      await runWithEvents([
+        ccInit(),
+        ccAgentSpawn('msg_main_1', 'toolu_parent', {
+          description: 'Explore the repo',
+          prompt: 'Find all TS files',
+          subagent_type: 'Explore',
+        }),
+        ccAgentResult('toolu_parent', 'Final answer'),
+        ccResult(),
+      ]);
+
+      // role:'task' message created in the main topic
+      const taskCreate = mockCreateMessage.mock.calls.find(
+        ([p]: any) => p.role === 'task' && p.tool_call_id === 'toolu_parent',
+      );
+      expect(taskCreate).toBeDefined();
+      expect(taskCreate![0].metadata).toMatchObject({
+        instruction: 'Find all TS files',
+        taskTitle: 'Explore the repo',
+        targetAgentId: 'Explore',
+      });
+
+      // Thread created via threadService
+      expect(mockCreateThreadWithMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sourceMessageId: expect.stringMatching(/^task-msg-/),
+          type: 'isolation',
+          status: 'processing',
+        }),
+      );
+
+      // Initial assistant bubble for the thread
+      const threadAssistantCreate = mockCreateMessage.mock.calls.find(
+        ([p]: any) => p.role === 'assistant' && p.threadId,
+      );
+      expect(threadAssistantCreate).toBeDefined();
+    });
+
+    it('routes subagent child tool_use into the Thread scope', async () => {
+      await runWithEvents([
+        ccInit(),
+        ccAgentSpawn('msg_main', 'toolu_parent', {
+          description: 'd',
+          prompt: 'p',
+          subagent_type: 'Explore',
+        }),
+        ccSubagentToolUse('msg_sub_1', 'toolu_parent', 'toolu_child_1', 'Bash', { command: 'ls' }),
+        ccSubagentToolResult('toolu_parent', 'toolu_child_1', 'file1\nfile2'),
+        ccAgentResult('toolu_parent', 'Done'),
+        ccResult(),
+      ]);
+
+      // Child tool message created with threadId — not on the main assistant
+      const childToolCreate = mockCreateMessage.mock.calls.find(
+        ([p]: any) => p.role === 'tool' && p.tool_call_id === 'toolu_child_1',
+      );
+      expect(childToolCreate).toBeDefined();
+      expect(childToolCreate![0].threadId).toMatch(/^thread-/);
+
+      // Main assistant's tools[] MUST NOT contain the child — it belongs to the thread
+      const mainToolWrites = mockUpdateMessage.mock.calls.filter(
+        ([id, v]: any) => id === 'ast-initial' && Array.isArray(v.tools),
+      );
+      for (const [, v] of mainToolWrites) {
+        expect(v.tools.some((t: any) => t.id === 'toolu_child_1')).toBe(false);
+      }
+    });
+
+    it('finalizes the Thread + task detail on outer Agent tool_result', async () => {
+      await runWithEvents([
+        ccInit(),
+        ccAgentSpawn('msg_main', 'toolu_parent', { description: 'd', prompt: 'p' }),
+        ccSubagentToolUse('msg_sub', 'toolu_parent', 'toolu_child', 'Read', {}),
+        ccSubagentToolResult('toolu_parent', 'toolu_child', 'contents'),
+        ccAgentResult('toolu_parent', 'The final synthesized answer.'),
+        ccResult(),
+      ]);
+
+      // Thread moved to Completed
+      const completedUpdate = mockUpdateThread.mock.calls.find(
+        ([, v]: any) => v.status === 'completed',
+      );
+      expect(completedUpdate).toBeDefined();
+      expect(completedUpdate![1].metadata).toMatchObject({
+        totalToolCalls: 1,
+      });
+      expect(completedUpdate![1].metadata.duration).toBeGreaterThanOrEqual(0);
+
+      // Task message's taskDetail populated
+      const taskDetailUpdate = mockUpdateMessage.mock.calls.find(
+        ([, v]: any) => v.metadata?.taskDetail?.status === 'completed',
+      );
+      expect(taskDetailUpdate).toBeDefined();
+      expect(taskDetailUpdate![1].metadata.taskDetail).toMatchObject({
+        status: 'completed',
+        totalToolCalls: 1,
+      });
+
+      // Thread's assistant bubble received the final text
+      const finalTextWrite = mockUpdateMessage.mock.calls.find(
+        ([, v]: any) => v.content === 'The final synthesized answer.',
+      );
+      expect(finalTextWrite).toBeDefined();
+    });
+
+    it('marks Failed when the Agent tool_result is an error', async () => {
+      await runWithEvents([
+        ccInit(),
+        ccAgentSpawn('msg_main', 'toolu_parent', { description: 'd', prompt: 'p' }),
+        ccAgentResult('toolu_parent', 'boom', true),
+        ccResult(),
+      ]);
+
+      const failedUpdate = mockUpdateThread.mock.calls.find(([, v]: any) => v.status === 'failed');
+      expect(failedUpdate).toBeDefined();
     });
   });
 });
