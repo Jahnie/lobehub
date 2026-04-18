@@ -39,8 +39,14 @@ const Header = memo(() => {
     <div className={headerStyles.container}>
       <NavHeader
         left={
-          <Flexbox style={{ backgroundColor: cssVar.colorBgContainer }}>
+          <Flexbox
+            horizontal
+            align={'center'}
+            gap={4}
+            style={{ backgroundColor: cssVar.colorBgContainer }}
+          >
             <Tags />
+            <HeaderActions />
           </Flexbox>
         }
         right={
@@ -50,7 +56,6 @@ const Header = memo(() => {
             </Flexbox>
             <ShareButton />
             <WorkingPanelToggle />
-            <HeaderActions />
           </Flexbox>
         }
       />
