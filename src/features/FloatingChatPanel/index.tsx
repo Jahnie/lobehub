@@ -1,9 +1,10 @@
 'use client';
 
 import { type UIChatMessage } from '@lobechat/types';
-import { createStaticStyles, cx } from 'antd-style';
+import { FloatingSheet, type FloatingSheetProps } from '@lobehub/ui/base-ui';
+import { createStaticStyles } from 'antd-style';
 import type { ReactNode } from 'react';
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useState } from 'react';
 
 import { type ActionsBarConfig, ConversationProvider } from '@/features/Conversation';
 import { type ConversationContext } from '@/features/Conversation/types';
@@ -95,18 +96,14 @@ const FloatingChatPanel = memo<FloatingChatPanelProps>(
     topicId,
     threadId = null,
     actionsBar,
-    snapPoints = [0.5, 0.9],
+
     minHeight = 240,
     maxHeight = 0.9,
-    mode = 'overlay',
-    variant = 'elevated',
+
     width = '100%',
-    dismissible = false,
-    open,
-    activeSnapPoint,
+
     title,
     headerActions,
-    className,
   }) => {
     useSingleInstanceGuard();
 
@@ -135,25 +132,27 @@ const FloatingChatPanel = memo<FloatingChatPanelProps>(
       [replaceMessages],
     );
 
-    if (open === false) return null;
+    const [open, setOpen] = useState(true);
+    const sheetProps: FloatingSheetProps = {
+      className: 'floating-sheet-demo-inline',
+      closeThreshold: 0.3,
+      defaultOpen: true,
+      dismissible: false,
 
-    const bodyStyle = {
-      maxHeight: maxHeight ? `${Math.round(maxHeight * 100)}%` : undefined,
-      minHeight,
-      width,
+      maxHeight: 520,
+      minHeight: 120,
+      mode: 'inline',
+      onOpenChange: setOpen,
+      open,
+      restingHeight: 180,
+      snapPoints: [180, 320, 520],
+
+      variant: 'embedded',
+      width: '100%',
     };
 
     return (
-      <div
-        className={cx(styles.sheet, className)}
-        data-active-snap-point={activeSnapPoint}
-        data-dismissible={String(dismissible)}
-        data-mode={mode}
-        data-snap-points={JSON.stringify(snapPoints)}
-        data-testid={'floating-panel-shell'}
-        data-variant={variant}
-        style={bodyStyle}
-      >
+      <FloatingSheet {...sheetProps}>
         {(title || headerActions) && (
           <div className={styles.header}>
             <div className={styles.title} data-testid={'sheet-title'}>
@@ -174,7 +173,7 @@ const FloatingChatPanel = memo<FloatingChatPanelProps>(
             <ChatBody />
           </ConversationProvider>
         </div>
-      </div>
+      </FloatingSheet>
     );
   },
 );

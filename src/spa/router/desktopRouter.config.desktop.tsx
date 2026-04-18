@@ -16,6 +16,7 @@ import DesktopVideoLayout from '@/routes/(main)/(create)/video/_layout';
 // Pages — sync import
 import AgentPage from '@/routes/(main)/agent';
 import DesktopChatLayout from '@/routes/(main)/agent/_layout';
+import DesktopAgentChatLayout from '@/routes/(main)/agent/(chat)/_layout';
 import AgentTopicPage from '@/routes/(main)/agent/[topicId]';
 import AgentTopicNotebookPage from '@/routes/(main)/agent/[topicId]/page';
 import AgentChannelPage from '@/routes/(main)/agent/channel';
@@ -90,25 +91,30 @@ export const desktopRoutes: RouteObject[] = [
           {
             children: [
               {
-                element: <AgentPage />,
-                index: true,
+                children: [
+                  {
+                    element: <AgentPage />,
+                    index: true,
+                  },
+                  {
+                    children: [
+                      {
+                        element: <AgentTopicPage />,
+                        index: true,
+                      },
+                      {
+                        element: <AgentTopicNotebookPage />,
+                        path: 'page',
+                      },
+                    ],
+                    path: ':topicId',
+                  },
+                ],
+                element: <DesktopAgentChatLayout />,
               },
               {
                 element: <AgentPageRedirectPage />,
                 path: 'page',
-              },
-              {
-                children: [
-                  {
-                    element: <AgentTopicPage />,
-                    index: true,
-                  },
-                  {
-                    element: <AgentTopicNotebookPage />,
-                    path: 'page',
-                  },
-                ],
-                path: ':topicId',
               },
               {
                 element: <AgentProfilePage />,

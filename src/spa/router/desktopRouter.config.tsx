@@ -22,8 +22,38 @@ export const desktopRoutes: RouteObject[] = [
           {
             children: [
               {
-                element: dynamicElement(() => import('@/routes/(main)/agent'), 'Desktop > Chat'),
-                index: true,
+                children: [
+                  {
+                    element: dynamicElement(
+                      () => import('@/routes/(main)/agent'),
+                      'Desktop > Chat',
+                    ),
+                    index: true,
+                  },
+                  {
+                    children: [
+                      {
+                        element: dynamicElement(
+                          () => import('@/routes/(main)/agent/[topicId]'),
+                          'Desktop > Chat > Topic',
+                        ),
+                        index: true,
+                      },
+                      {
+                        element: dynamicElement(
+                          () => import('@/routes/(main)/agent/[topicId]/page'),
+                          'Desktop > Chat > Topic > Page',
+                        ),
+                        path: 'page',
+                      },
+                    ],
+                    path: ':topicId',
+                  },
+                ],
+                element: dynamicLayout(
+                  () => import('@/routes/(main)/agent/(chat)/_layout'),
+                  'Desktop > Chat > ChatLayout',
+                ),
               },
               {
                 element: dynamicElement(
@@ -31,25 +61,6 @@ export const desktopRoutes: RouteObject[] = [
                   'Desktop > Chat > Invalid Page Redirect',
                 ),
                 path: 'page',
-              },
-              {
-                children: [
-                  {
-                    element: dynamicElement(
-                      () => import('@/routes/(main)/agent/[topicId]'),
-                      'Desktop > Chat > Topic',
-                    ),
-                    index: true,
-                  },
-                  {
-                    element: dynamicElement(
-                      () => import('@/routes/(main)/agent/[topicId]/page'),
-                      'Desktop > Chat > Topic > Page',
-                    ),
-                    path: 'page',
-                  },
-                ],
-                path: ':topicId',
               },
               {
                 element: dynamicElement(
