@@ -86,7 +86,7 @@ export interface GlobalBillboardItem {
   cover?: string | null;
   description: string;
   /**
-   * 按 locale 覆盖的文案。缺失 locale 或 locale 内某字段缺失时回退到默认字段。
+   * Per-locale copy overrides. Falls back to default fields when the locale or a field within it is absent.
    */
   i18n?: Record<string, GlobalBillboardItemLocaleFields>;
   id: number;
@@ -102,7 +102,7 @@ export interface GlobalBillboardLocaleFields {
 export interface GlobalBillboard {
   endAt: string;
   /**
-   * 按 locale 覆盖 billboard 级别字段（当前仅 title）。缺失时回退到默认 title。
+   * Per-locale overrides for billboard-level fields (currently only title). Falls back to the default title when absent.
    */
   i18n?: Record<string, GlobalBillboardLocaleFields>;
   id: number;
