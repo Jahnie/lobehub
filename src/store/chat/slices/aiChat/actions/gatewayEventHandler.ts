@@ -5,31 +5,10 @@ import type {
   StreamStartData,
   ToolExecuteData,
 } from '@lobechat/agent-gateway-client';
-import {
-  AgentDocumentsApiName,
-  AgentDocumentsIdentifier,
-} from '@lobechat/builtin-tool-agent-documents';
 import type { ConversationContext } from '@lobechat/types';
 
 import { messageService } from '@/services/message';
 import type { ChatStore } from '@/store/chat/store';
-import { type DocumentChangeOperation, documentEvents } from '@/store/document/events';
-
-/**
- * Agent-documents tool APIs that mutate a document. Used to bridge server-side
- * tool executions into the client-side `documentEvents` bus so open editors
- * refresh without requiring a blanket post-send revalidation.
- */
-const AGENT_DOCUMENTS_WRITE_OPS: Record<string, DocumentChangeOperation> = {
-  [AgentDocumentsApiName.copyDocument]: 'copy',
-  [AgentDocumentsApiName.createDocument]: 'create',
-  [AgentDocumentsApiName.editDocument]: 'edit',
-  [AgentDocumentsApiName.patchDocument]: 'edit',
-  [AgentDocumentsApiName.removeDocument]: 'remove',
-  [AgentDocumentsApiName.renameDocument]: 'rename',
-  [AgentDocumentsApiName.updateLoadRule]: 'updateLoadRule',
-  [AgentDocumentsApiName.upsertDocumentByFilename]: 'upsert',
-};
 
 /**
  * Fetch messages from DB and replace them in the chat store's dbMessagesMap.
@@ -203,30 +182,6 @@ export const createGatewayEventHandler = (
       }
 
       case 'tool_end': {
-        // Bridge server-executed agent-documents writes into the document
-        // event bus. The payload shape is `{ parentMessageId, toolCalling }`
-        // where `toolCalling` is a `ChatToolPayload` carrying identifier +
-        // apiName. We cannot recover `documents.id` from here (`toolCalling`
-        // args only carry `agent_documents.id`), so we emit without a
-        // `documentId` and rely on listeners to refresh their own doc.
-        const toolEndData = event.data as
-          | { isSuccess?: boolean; payload?: { toolCalling?: unknown } }
-          | undefined;
-        const toolCalling = toolEndData?.payload?.toolCalling as
-          | { apiName?: string; identifier?: string }
-          | undefined;
-        if (
-          toolEndData?.isSuccess &&
-          toolCalling?.identifier === AgentDocumentsIdentifier &&
-          toolCalling.apiName &&
-          AGENT_DOCUMENTS_WRITE_OPS[toolCalling.apiName]
-        ) {
-          documentEvents.emit({
-            agentId: context.agentId,
-            operation: AGENT_DOCUMENTS_WRITE_OPS[toolCalling.apiName],
-          });
-        }
-
         enqueue(async () => {
           await fetchAndReplaceMessages(get, context).catch(console.error);
         });

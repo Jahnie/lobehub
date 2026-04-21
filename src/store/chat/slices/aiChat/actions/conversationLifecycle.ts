@@ -29,6 +29,10 @@ import { agentGroupByIdSelectors, getChatGroupStoreState } from '@/store/agentGr
 import { resolveHeteroResume } from '@/store/chat/slices/aiChat/actions/heteroResume';
 import { type ChatStore } from '@/store/chat/store';
 import {
+  mergeAgentRuntimeInitialContexts,
+  resolveActiveTopicDocumentInitialContext,
+} from '@/store/chat/utils/activeTopicDocumentContext';
+import {
   createPendingCompressedGroup,
   getCompressionCandidateMessageIds,
   hasRunningCompressionOperation,
@@ -769,6 +773,8 @@ export class ConversationLifecycleActionImpl {
         // When agents are @mentioned, inject a slim callAgent-only manifest
         // so the AI can delegate directly without activating the full agent-management tool
         const injectedManifests = hasMentionedAgents ? [createCallAgentManifest()] : undefined;
+        const activeTopicDocumentInitialContext =
+          await resolveActiveTopicDocumentInitialContext(execContext);
 
         const hasInitialContext = hasMentionedAgents || !!injectedManifests;
 
@@ -786,10 +792,14 @@ export class ConversationLifecycleActionImpl {
               phase: 'init' as const,
             }
           : undefined;
+        const mergedAgentRuntimeInitialContext = mergeAgentRuntimeInitialContexts(
+          activeTopicDocumentInitialContext,
+          agentRuntimeInitialContext,
+        );
 
         await internal_execAgentRuntime({
           context: execContext,
-          initialContext: agentRuntimeInitialContext,
+          initialContext: mergedAgentRuntimeInitialContext,
           messages: displayMessages,
           parentMessageId: data.assistantMessageId,
           parentMessageType: 'assistant',

@@ -4,6 +4,7 @@ import { AgentManagementIdentifier } from '@lobechat/builtin-tool-agent-manageme
 import { CredsIdentifier, type CredSummary, generateCredsList } from '@lobechat/builtin-tool-creds';
 import { GroupAgentBuilderIdentifier } from '@lobechat/builtin-tool-group-agent-builder';
 import { GTDIdentifier } from '@lobechat/builtin-tool-gtd';
+import { PageAgentIdentifier } from '@lobechat/builtin-tool-page-agent';
 import { WebOnboardingIdentifier } from '@lobechat/builtin-tool-web-onboarding';
 import { isDesktop, KLAVIS_SERVER_TYPES, LOBEHUB_SKILL_PROVIDERS } from '@lobechat/const';
 import type {
@@ -682,6 +683,9 @@ export const contextEngineering = async ({
 
     // Tools configuration
     toolsConfig: {
+      disabledToolIdentifiers: tools?.includes(PageAgentIdentifier)
+        ? undefined
+        : [PageAgentIdentifier],
       manifests,
       tools,
     },

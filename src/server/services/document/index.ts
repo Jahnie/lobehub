@@ -8,6 +8,7 @@ import isEqual from 'fast-deep-equal';
 
 import { DocumentModel } from '@/database/models/document';
 import { FileModel } from '@/database/models/file';
+import { isValidEditorData } from '@/libs/editor/isValidEditorData';
 import { type LobeDocument } from '@/types/document';
 
 import { FileService } from '../file';
@@ -212,6 +213,33 @@ export class DocumentService {
     });
 
     return { savedAt };
+  }
+
+  /**
+   * Best-effort snapshot of the current document editor state before an automated mutation.
+   */
+  async trySaveCurrentDocumentHistory(
+    documentId: string,
+    saveSource: DocumentHistorySaveSource,
+  ): Promise<SaveDocumentHistoryResult | undefined> {
+    try {
+      const currentDocument = await this.documentModel.findById(documentId);
+      const editorData = currentDocument?.editorData;
+      if (!isValidEditorData(editorData)) return undefined;
+
+      const savedAt = new Date();
+      await this.documentHistoryService.createHistory({
+        documentId,
+        editorData,
+        saveSource,
+        savedAt,
+      });
+
+      return { savedAt };
+    } catch (error) {
+      console.error('[DocumentService] Failed to save current document history:', error);
+      return undefined;
+    }
   }
 
   /**

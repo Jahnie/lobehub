@@ -171,7 +171,7 @@ const TopicCanvasPageAgentBridge = memo<
 TopicCanvasPageAgentBridge.displayName = 'TopicCanvasPageAgentBridge';
 
 const TopicCanvasBody = memo<TopicCanvasProps>(
-  ({ placeholder, style, title, documentId, onTitleChange }) => {
+  ({ placeholder, style, title, documentId, onTitleChange, topicId }) => {
     const editor = useEditor();
     const [editorReady, setEditorReady] = useState(false);
     const readyTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -263,6 +263,7 @@ const TopicCanvasBody = memo<TopicCanvasProps>(
                   placeholder={placeholder}
                   sourceType={'notebook'}
                   style={style}
+                  topicId={topicId}
                   onInit={handleEditorInit}
                 />
               </Flexbox>

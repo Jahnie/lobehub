@@ -283,7 +283,7 @@ export class StreamingExecutorActionImpl {
     // Build initialContext for page editor if lobe-page-agent is enabled
     let runtimeInitialContext: RuntimeInitialContext | undefined;
 
-    if (enabledToolIds.includes(PageAgentIdentifier)) {
+    if (scope === 'page' && enabledToolIds.includes(PageAgentIdentifier)) {
       try {
         // Get page content context from page agent runtime
         const pageContentContext = pageAgentRuntime.getPageContentContext('both');
@@ -535,7 +535,9 @@ export class StreamingExecutorActionImpl {
       // Use selectTodosFromMessages selector (shared with UI display)
       const todos = selectTodosFromMessages(currentDBMessages);
       // Accumulate activated tool IDs from lobe-activator messages
-      const activatedToolIds = selectActivatedToolIdsFromMessages(currentDBMessages);
+      const activatedToolIds = selectActivatedToolIdsFromMessages(currentDBMessages)?.filter(
+        (id) => scope === 'page' || id !== PageAgentIdentifier,
+      );
       // Accumulate activated skills from activateSkill messages
       const activatedSkills = selectActivatedSkillsFromMessages(currentDBMessages);
       const hasQueuedMessages = (this.#get().queuedMessages[contextKey]?.length ?? 0) > 0;
@@ -547,7 +549,7 @@ export class StreamingExecutorActionImpl {
       });
 
       // If page agent is enabled, get the latest XML for stepPageEditor
-      if (nextContext.initialContext?.pageEditor) {
+      if (scope === 'page' && nextContext.initialContext?.pageEditor) {
         try {
           const pageContentContext = pageAgentRuntime.getPageContentContext('xml');
           stepContext.stepPageEditor = {

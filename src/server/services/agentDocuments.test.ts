@@ -10,6 +10,7 @@ import { TopicDocumentModel } from '@/database/models/topicDocument';
 import type { LobeChatDatabase } from '@/database/type';
 
 import { AgentDocumentsService } from './agentDocuments';
+import { DocumentService } from './document';
 
 vi.mock('@/database/models/agentDocuments', () => ({
   AgentDocumentModel: vi.fn(),
@@ -24,6 +25,10 @@ vi.mock('@/database/models/topicDocument', () => ({
   TopicDocumentModel: vi.fn(),
 }));
 
+vi.mock('./document', () => ({
+  DocumentService: vi.fn(),
+}));
+
 describe('AgentDocumentsService', () => {
   const db = {} as LobeChatDatabase;
   const userId = 'user-1';
@@ -31,11 +36,17 @@ describe('AgentDocumentsService', () => {
   const mockModel = {
     associate: vi.fn(),
     create: vi.fn(),
+    findById: vi.fn(),
     findByAgent: vi.fn(),
     findByDocumentIds: vi.fn(),
     findByFilename: vi.fn(),
     hasByAgent: vi.fn(),
+    rename: vi.fn(),
+    update: vi.fn(),
     upsert: vi.fn(),
+  };
+  const mockDocumentService = {
+    trySaveCurrentDocumentHistory: vi.fn(),
   };
   const mockTopicDocumentModel = {
     associate: vi.fn(),
@@ -45,6 +56,7 @@ describe('AgentDocumentsService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (AgentDocumentModel as any).mockImplementation(() => mockModel);
+    (DocumentService as any).mockImplementation(() => mockDocumentService);
     (TopicDocumentModel as any).mockImplementation(() => mockTopicDocumentModel);
     vi.mocked(buildDocumentFilename).mockImplementation((title: string) => title);
     vi.mocked(extractMarkdownH1Title).mockImplementation((content: string) => ({ content }));
@@ -250,6 +262,7 @@ describe('AgentDocumentsService', () => {
 
   describe('upsertDocumentByFilename', () => {
     it('should create or update a document by filename', async () => {
+      mockModel.findByFilename.mockResolvedValue(undefined);
       mockModel.upsert.mockResolvedValue({ content: 'new', filename: 'f.md', id: 'doc-1' });
 
       const service = new AgentDocumentsService(db, userId);
@@ -261,6 +274,145 @@ describe('AgentDocumentsService', () => {
 
       expect(mockModel.upsert).toHaveBeenCalledWith('agent-1', 'f.md', 'new');
       expect(result).toEqual({ content: 'new', filename: 'f.md', id: 'doc-1' });
+    });
+
+    it('should save history before updating an existing document by filename', async () => {
+      mockModel.findByFilename.mockResolvedValue({
+        agentId: 'agent-1',
+        content: 'old',
+        documentId: 'documents-1',
+        filename: 'f.md',
+        id: 'agent-doc-1',
+      });
+      mockModel.upsert.mockResolvedValue({ content: 'new', filename: 'f.md', id: 'agent-doc-1' });
+
+      const service = new AgentDocumentsService(db, userId);
+      await service.upsertDocumentByFilename({
+        agentId: 'agent-1',
+        content: 'new',
+        filename: 'f.md',
+      });
+
+      expect(mockDocumentService.trySaveCurrentDocumentHistory).toHaveBeenCalledWith(
+        'documents-1',
+        'llm_call',
+      );
+      expect(
+        mockDocumentService.trySaveCurrentDocumentHistory.mock.invocationCallOrder[0],
+      ).toBeLessThan(mockModel.upsert.mock.invocationCallOrder[0]);
+    });
+
+    it('should skip history when upsert content is unchanged', async () => {
+      mockModel.findByFilename.mockResolvedValue({
+        agentId: 'agent-1',
+        content: 'same',
+        documentId: 'documents-1',
+        filename: 'f.md',
+        id: 'agent-doc-1',
+      });
+      mockModel.upsert.mockResolvedValue({ content: 'same', filename: 'f.md', id: 'agent-doc-1' });
+
+      const service = new AgentDocumentsService(db, userId);
+      await service.upsertDocumentByFilename({
+        agentId: 'agent-1',
+        content: 'same',
+        filename: 'f.md',
+      });
+
+      expect(mockDocumentService.trySaveCurrentDocumentHistory).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('editDocumentById', () => {
+    it('should save history before editing document content', async () => {
+      mockModel.findById
+        .mockResolvedValueOnce({
+          agentId: 'agent-1',
+          content: 'old',
+          documentId: 'documents-1',
+          id: 'agent-doc-1',
+          title: 'Doc',
+        })
+        .mockResolvedValueOnce({
+          agentId: 'agent-1',
+          content: 'new',
+          documentId: 'documents-1',
+          id: 'agent-doc-1',
+          title: 'Doc',
+        });
+
+      const service = new AgentDocumentsService(db, userId);
+      const result = await service.editDocumentById('agent-doc-1', 'new', 'agent-1');
+
+      expect(mockDocumentService.trySaveCurrentDocumentHistory).toHaveBeenCalledWith(
+        'documents-1',
+        'llm_call',
+      );
+      expect(mockModel.update).toHaveBeenCalledWith('agent-doc-1', { content: 'new' });
+      expect(
+        mockDocumentService.trySaveCurrentDocumentHistory.mock.invocationCallOrder[0],
+      ).toBeLessThan(mockModel.update.mock.invocationCallOrder[0]);
+      expect(result).toEqual({
+        agentId: 'agent-1',
+        content: 'new',
+        documentId: 'documents-1',
+        id: 'agent-doc-1',
+        title: 'Doc',
+      });
+    });
+
+    it('should skip history when edited content is unchanged', async () => {
+      mockModel.findById
+        .mockResolvedValueOnce({
+          agentId: 'agent-1',
+          content: 'same',
+          documentId: 'documents-1',
+          id: 'agent-doc-1',
+          title: 'Doc',
+        })
+        .mockResolvedValueOnce({
+          agentId: 'agent-1',
+          content: 'same',
+          documentId: 'documents-1',
+          id: 'agent-doc-1',
+          title: 'Doc',
+        });
+
+      const service = new AgentDocumentsService(db, userId);
+      await service.editDocumentById('agent-doc-1', 'same', 'agent-1');
+
+      expect(mockDocumentService.trySaveCurrentDocumentHistory).not.toHaveBeenCalled();
+      expect(mockModel.update).toHaveBeenCalledWith('agent-doc-1', { content: 'same' });
+    });
+  });
+
+  describe('renameDocumentById', () => {
+    it('should save history before renaming a document', async () => {
+      mockModel.findById.mockResolvedValue({
+        agentId: 'agent-1',
+        content: 'content',
+        documentId: 'documents-1',
+        id: 'agent-doc-1',
+        title: 'Old title',
+      });
+      mockModel.rename.mockResolvedValue({
+        agentId: 'agent-1',
+        content: 'content',
+        documentId: 'documents-1',
+        id: 'agent-doc-1',
+        title: 'New title',
+      });
+
+      const service = new AgentDocumentsService(db, userId);
+      await service.renameDocumentById('agent-doc-1', 'New title', 'agent-1');
+
+      expect(mockDocumentService.trySaveCurrentDocumentHistory).toHaveBeenCalledWith(
+        'documents-1',
+        'llm_call',
+      );
+      expect(
+        mockDocumentService.trySaveCurrentDocumentHistory.mock.invocationCallOrder[0],
+      ).toBeLessThan(mockModel.rename.mock.invocationCallOrder[0]);
     });
   });
 

@@ -109,4 +109,21 @@ describe('DocumentIdMode', () => {
       expect(onInit).toHaveBeenCalledWith(editor);
     });
   });
+
+  it('should pass topicId into document fetching options', () => {
+    const editor = {
+      getLexicalEditor: vi.fn(() => ({})),
+    } as any;
+
+    render(
+      <DocumentIdMode documentId="doc-1" editor={editor} sourceType="notebook" topicId="topic-1" />,
+    );
+
+    expect(useFetchDocument).toHaveBeenCalledWith('doc-1', {
+      autoSave: true,
+      editor,
+      sourceType: 'notebook',
+      topicId: 'topic-1',
+    });
+  });
 });

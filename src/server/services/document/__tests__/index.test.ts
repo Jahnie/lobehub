@@ -712,6 +712,54 @@ describe('DocumentService', () => {
     });
   });
 
+  describe('trySaveCurrentDocumentHistory', () => {
+    it('should create a history entry from the current document editor data', async () => {
+      const editorData = { root: { children: [{ type: 'paragraph' }] } };
+      mockDocumentModel.findById.mockResolvedValue({ editorData, id: 'doc-1' });
+      mockDocumentHistoryService.createHistory.mockResolvedValue(undefined);
+
+      const result = await service.trySaveCurrentDocumentHistory('doc-1', 'llm_call');
+
+      expect(mockDocumentHistoryService.createHistory).toHaveBeenCalledWith(
+        expect.objectContaining({
+          documentId: 'doc-1',
+          editorData,
+          saveSource: 'llm_call',
+          savedAt: expect.any(Date),
+        }),
+      );
+      expect(result?.savedAt).toBeInstanceOf(Date);
+    });
+
+    it('should skip history when the current editor data is empty', async () => {
+      mockDocumentModel.findById.mockResolvedValue({ editorData: {}, id: 'doc-1' });
+
+      const result = await service.trySaveCurrentDocumentHistory('doc-1', 'llm_call');
+
+      expect(result).toBeUndefined();
+      expect(mockDocumentHistoryService.createHistory).not.toHaveBeenCalled();
+    });
+
+    it('should not block the caller when history creation fails', async () => {
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+      mockDocumentModel.findById.mockResolvedValue({
+        editorData: { root: { children: [] } },
+        id: 'doc-1',
+      });
+      mockDocumentHistoryService.createHistory.mockRejectedValueOnce(new Error('history failed'));
+
+      await expect(
+        service.trySaveCurrentDocumentHistory('doc-1', 'llm_call'),
+      ).resolves.toBeUndefined();
+
+      expect(consoleError).toHaveBeenCalledWith(
+        '[DocumentService] Failed to save current document history:',
+        expect.any(Error),
+      );
+      consoleError.mockRestore();
+    });
+  });
+
   describe('parseDocument', () => {
     const mockCleanup = vi.fn();
 

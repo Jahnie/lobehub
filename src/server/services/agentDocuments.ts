@@ -1,21 +1,22 @@
-import {
-  type AgentDocumentPolicy,
-  type DOCUMENT_TEMPLATES,
-  DocumentLoadPosition,
-  type DocumentLoadRules,
-  type DocumentTemplateSet,
-  getDocumentTemplate,
-  type PolicyLoad,
+import type {
+  AgentDocumentPolicy,
+  DOCUMENT_TEMPLATES,
+  DocumentLoadRules,
+  DocumentTemplateSet,
+  PolicyLoad,
 } from '@lobechat/agent-templates';
+import { DocumentLoadPosition, getDocumentTemplate } from '@lobechat/agent-templates';
 import type { LobeChatDatabase } from '@lobechat/database';
 
+import type { AgentDocumentWithRules, ToolUpdateLoadRule } from '@/database/models/agentDocuments';
 import {
   AgentDocumentModel,
-  type AgentDocumentWithRules,
-  type ToolUpdateLoadRule,
+  buildDocumentFilename,
+  extractMarkdownH1Title,
 } from '@/database/models/agentDocuments';
-import { buildDocumentFilename, extractMarkdownH1Title } from '@/database/models/agentDocuments';
 import { TopicDocumentModel } from '@/database/models/topicDocument';
+
+import { DocumentService } from './document';
 
 const MAX_UNIQUE_FILENAME_ATTEMPTS = 1000;
 
@@ -39,10 +40,12 @@ interface UpsertDocumentParams {
  */
 export class AgentDocumentsService {
   private agentDocumentModel: AgentDocumentModel;
+  private documentService: DocumentService;
   private topicDocumentModel: TopicDocumentModel;
 
   constructor(db: LobeChatDatabase, userId: string) {
     this.agentDocumentModel = new AgentDocumentModel(db, userId);
+    this.documentService = new DocumentService(db, userId);
     this.topicDocumentModel = new TopicDocumentModel(db, userId);
   }
 
@@ -368,12 +371,22 @@ export class AgentDocumentsService {
     content: string;
     filename: string;
   }) {
+    const existing = await this.agentDocumentModel.findByFilename(agentId, filename);
+
+    if (existing && existing.content !== content) {
+      await this.documentService.trySaveCurrentDocumentHistory(existing.documentId, 'llm_call');
+    }
+
     return this.agentDocumentModel.upsert(agentId, filename, content);
   }
 
   async editDocumentById(documentId: string, content: string, expectedAgentId?: string) {
     const doc = await this.getDocumentByIdInAgent(documentId, expectedAgentId);
     if (!doc) return undefined;
+
+    if (doc.content !== content) {
+      await this.documentService.trySaveCurrentDocumentHistory(doc.documentId, 'llm_call');
+    }
 
     await this.agentDocumentModel.update(documentId, { content });
     return this.agentDocumentModel.findById(documentId);
@@ -382,6 +395,11 @@ export class AgentDocumentsService {
   async renameDocumentById(documentId: string, newTitle: string, expectedAgentId?: string) {
     const doc = await this.getDocumentByIdInAgent(documentId, expectedAgentId);
     if (!doc) return undefined;
+
+    const title = newTitle.trim();
+    if (title && title !== doc.title) {
+      await this.documentService.trySaveCurrentDocumentHistory(doc.documentId, 'llm_call');
+    }
 
     return this.agentDocumentModel.rename(documentId, newTitle);
   }

@@ -54,6 +54,7 @@ const DocumentIdMode = memo<DocumentIdModeProps>(
     documentId,
     autoSave = true,
     sourceType = 'page',
+    topicId,
     onContentChange,
     onInit,
     unsavedChangesGuard,
@@ -92,7 +93,7 @@ const DocumentIdMode = memo<DocumentIdModeProps>(
     );
 
     // Use SWR hook for document fetching (auto-initializes via onSuccess in DocumentStore)
-    const { error } = useFetchDocument(documentId, { autoSave, editor, sourceType });
+    const { error } = useFetchDocument(documentId, { autoSave, editor, sourceType, topicId });
 
     // Check loading state via selector (document not yet in store)
     const isLoading = useDocumentStore(editorSelectors.isDocumentLoading(documentId));

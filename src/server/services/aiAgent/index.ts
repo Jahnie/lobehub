@@ -356,6 +356,10 @@ export class AiAgentService {
       }
     }
 
+    if (appContext?.scope !== 'page') {
+      agentConfig.plugins = agentConfig.plugins?.filter((id) => id !== PageAgentIdentifier);
+    }
+
     if (appContext?.scope === 'page' && agentSlug !== BUILTIN_AGENT_SLUGS.pageAgent) {
       const pageAgentRuntime = getAgentRuntimeConfig(BUILTIN_AGENT_SLUGS.pageAgent, {
         model: agentConfig.model,
@@ -1349,6 +1353,39 @@ export class AiAgentService {
       },
     };
 
+    if (appContext?.scope !== 'page' && appContext?.documentId && topicId) {
+      try {
+        const topicDocuments = await this.agentDocumentsService.listDocumentsForTopic(
+          resolvedAgentId,
+          topicId,
+        );
+        const activeTopicDocument = topicDocuments.find(
+          (document) => document.documentId === appContext.documentId,
+        );
+
+        initialContext = {
+          ...initialContext,
+          initialContext: {
+            activeTopicDocument: {
+              agentDocumentId: activeTopicDocument?.id,
+              documentId: appContext.documentId,
+              title: activeTopicDocument?.title,
+            },
+          },
+        };
+      } catch (error) {
+        log('execAgent: failed to resolve active topic document context: %O', error);
+        initialContext = {
+          ...initialContext,
+          initialContext: {
+            activeTopicDocument: {
+              documentId: appContext.documentId,
+            },
+          },
+        };
+      }
+    }
+
     // 16b. Human-approval resume — override initialContext based on the
     // user's decision. The DB write above has already persisted the
     // intervention status, so `allMessages` reflects the decision for the
@@ -1370,6 +1407,7 @@ export class AiAgentService {
         // the plugin row fetched above; missing any of identifier/apiName
         // breaks the server-side tool executor dispatch.
         initialContext = {
+          initialContext: initialContext.initialContext,
           payload: {
             approvedToolCall: {
               apiName: resumeApprovalPlugin.apiName,

@@ -46,21 +46,6 @@ vi.mock('@/services/agentDocument', () => ({
   agentDocumentSWRKeys: { documentsList: (id: string) => ['agent-documents-list', id] },
 }));
 
-vi.mock('@/store/document', () => ({
-  documentEvents: { subscribe: vi.fn(() => vi.fn()) },
-  useDocumentStore: Object.assign(
-    vi.fn(() => undefined),
-    {
-      getState: () => ({
-        activeDocumentId: 'doc_test',
-        editor: undefined,
-        onEditorInit: vi.fn(),
-        performSave: vi.fn(),
-      }),
-    },
-  ),
-}));
-
 vi.mock('@/store/agent', () => ({
   useAgentStore: (selector: (s: { activeAgentId?: string }) => unknown) =>
     selector({ activeAgentId: 'agt_test' }),

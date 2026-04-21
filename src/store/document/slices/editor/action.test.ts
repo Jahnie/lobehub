@@ -73,6 +73,9 @@ describe('DocumentStore - Editor Actions', () => {
         sourceType: 'notebook',
         topicId: 'topic-1',
       });
+      expect(result.current.lastActiveTopicDocumentIdByTopicId).toEqual({
+        'topic-1': 'doc-1',
+      });
       // Should NOT call setDocument - that happens in onEditorInit
       expect(mockEditor.setDocument).not.toHaveBeenCalled();
     });
