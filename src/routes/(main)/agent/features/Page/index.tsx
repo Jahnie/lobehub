@@ -9,12 +9,12 @@ import { AutoSaveHint } from '@/features/EditorCanvas';
 import FloatingChatPanel from '@/features/FloatingChatPanel';
 import TopicCanvas from '@/features/TopicCanvas';
 import { useAutoCreateTopicDocument } from '@/features/TopicCanvas/useAutoCreateTopicDocument';
-import { mutate, useClientDataSWR } from '@/libs/swr';
+import { useClientDataSWR } from '@/libs/swr';
 import HeaderSlot from '@/routes/(main)/agent/(chat)/_layout/HeaderSlot';
-import { agentDocumentSWRKeys } from '@/services/agentDocument';
 import { documentService } from '@/services/document';
+import { invalidateDocumentMutation } from '@/services/document/invalidation';
+import { documentSWRKeys } from '@/services/document/swrKeys';
 import { useAgentStore } from '@/store/agent';
-import { SWR_USE_FETCH_NOTEBOOK_DOCUMENTS } from '@/store/notebook/action';
 
 const MAX_PANEL_WIDTH = 1024;
 const TITLE_SAVE_DEBOUNCE = 500;
@@ -32,7 +32,7 @@ const TopicPage = memo(() => {
     data: documentMeta,
     error: documentError,
     isLoading: isDocLoading,
-  } = useClientDataSWR(docId ? ['page-document-meta', docId] : null, () =>
+  } = useClientDataSWR(docId ? documentSWRKeys.pageMeta(docId) : null, () =>
     documentService.getDocumentById(docId!),
   );
 
@@ -63,9 +63,13 @@ const TopicPage = memo(() => {
             saveSource: 'autosave',
             title: nextTitle,
           });
-          if (ctx.agentId) await mutate(agentDocumentSWRKeys.documentsList(ctx.agentId));
-          if (ctx.topicId) await mutate([SWR_USE_FETCH_NOTEBOOK_DOCUMENTS, ctx.topicId]);
-          await mutate(['page-document-meta', id]);
+          await invalidateDocumentMutation({
+            agentId: ctx.agentId,
+            cause: 'page-title',
+            documentId: id,
+            refreshDocumentEditor: false,
+            topicId: ctx.topicId,
+          });
         },
         TITLE_SAVE_DEBOUNCE,
       ),

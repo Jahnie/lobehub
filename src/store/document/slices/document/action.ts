@@ -8,6 +8,7 @@ import { type SWRResponse } from 'swr';
 
 import { useClientDataSWRWithSync } from '@/libs/swr';
 import { documentService } from '@/services/document';
+import { documentSWRKeys } from '@/services/document/swrKeys';
 import { type StoreSetter } from '@/store/types';
 import { setNamespace } from '@/utils/storeDebug';
 
@@ -190,7 +191,7 @@ export class DocumentActionImpl {
     options: UseFetchDocumentOptions = {},
   ): SWRResponse<DocumentItem | null> => {
     const { autoSave = true, editor, sourceType = 'page', topicId } = options;
-    const swrKey = documentId && editor ? ['document/editor', documentId] : null;
+    const swrKey = documentId && editor ? documentSWRKeys.editor(documentId) : null;
 
     return useClientDataSWRWithSync<DocumentItem | null>(
       swrKey,

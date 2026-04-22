@@ -3,12 +3,10 @@
 import type { NotebookDocument } from '@lobechat/types';
 import { useEffect, useState } from 'react';
 
-import { mutate } from '@/libs/swr';
 import { agentDocumentService } from '@/services/agentDocument';
 import { useChatStore } from '@/store/chat';
 import { topicSelectors } from '@/store/chat/selectors';
 import { notebookSelectors, useNotebookStore } from '@/store/notebook';
-import { SWR_USE_FETCH_NOTEBOOK_DOCUMENTS } from '@/store/notebook/action';
 
 interface UseAutoCreateTopicDocumentResult {
   document: NotebookDocument | undefined;
@@ -56,15 +54,7 @@ export const useAutoCreateTopicDocument = (
           title: topicTitle?.trim() || '',
           topicId,
         })
-        .then(async (document) => {
-          try {
-            await mutate([SWR_USE_FETCH_NOTEBOOK_DOCUMENTS, topicId]);
-          } catch (error) {
-            console.error('[TopicCanvas] Failed to refresh topic documents:', error);
-          }
-
-          return document.documentId;
-        })
+        .then((document) => document.documentId)
         .catch((error) => {
           console.error('[TopicCanvas] Failed to auto-create topic document:', error);
 
