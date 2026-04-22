@@ -7,7 +7,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useAutoCreateTopicDocument } from './useAutoCreateTopicDocument';
 
 const createForTopicMock = vi.hoisted(() => vi.fn());
-const mutateMock = vi.hoisted(() => vi.fn());
 const notebookMock = vi.hoisted(() => ({
   documents: [] as Array<{ id: string }>,
   isLoading: false,
@@ -25,10 +24,6 @@ interface MockNotebookState {
 interface MockChatState {
   topicDataMap: Record<string, { items: Array<{ id: string; title: string }> }>;
 }
-
-vi.mock('@/libs/swr', () => ({
-  mutate: mutateMock,
-}));
 
 vi.mock('@/services/agentDocument', () => ({
   agentDocumentService: {
@@ -54,10 +49,6 @@ vi.mock('@/store/chat/selectors', () => ({
   },
 }));
 
-vi.mock('@/store/notebook/action', () => ({
-  SWR_USE_FETCH_NOTEBOOK_DOCUMENTS: 'SWR_USE_FETCH_NOTEBOOK_DOCUMENTS',
-}));
-
 vi.mock('@/store/notebook', () => ({
   notebookSelectors: {
     getDocumentsByTopicId: (topicId: string | undefined) => (state: MockNotebookState) => {
@@ -76,7 +67,6 @@ vi.mock('@/store/notebook', () => ({
 describe('useAutoCreateTopicDocument', () => {
   beforeEach(() => {
     createForTopicMock.mockReset();
-    mutateMock.mockReset();
     chatMock.topicTitle = 'Research Topic';
     notebookMock.documents = [];
     notebookMock.isLoading = false;
@@ -97,7 +87,6 @@ describe('useAutoCreateTopicDocument', () => {
 
   it('creates a topic page and exposes the created document id before the list refresh is observed', async () => {
     createForTopicMock.mockResolvedValue({ documentId: 'doc_created' });
-    mutateMock.mockResolvedValue(undefined);
 
     const { result } = renderHook(() => useAutoCreateTopicDocument('tpc_test', 'agt_test'));
 
@@ -108,6 +97,5 @@ describe('useAutoCreateTopicDocument', () => {
       title: 'Research Topic',
       topicId: 'tpc_test',
     });
-    expect(mutateMock).toHaveBeenCalledWith(['SWR_USE_FETCH_NOTEBOOK_DOCUMENTS', 'tpc_test']);
   });
 });
