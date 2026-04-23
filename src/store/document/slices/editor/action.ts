@@ -6,7 +6,6 @@ import isEqual from 'fast-deep-equal';
 
 import { EMPTY_EDITOR_STATE } from '@/libs/editor/constants';
 import { isValidEditorData } from '@/libs/editor/isValidEditorData';
-import { normalizeEditorDataDiffNodes } from '@/libs/editor/normalizeDiffNodes';
 import { documentService } from '@/services/document';
 import type { StoreSetter } from '@/store/types';
 import { setNamespace } from '@/utils/storeDebug';
@@ -181,12 +180,12 @@ export class EditorActionImpl {
         return;
       }
 
-      const normalizedEditorData = normalizeEditorDataDiffNodes(currentEditorData);
-
-      // Save document
+      // Preserve diff nodes (pending review) through the save path.
+      // Normalization only happens when the user explicitly clicks Accept/Reject
+      // in DiffAllToolbar, which mutates editor state before calling performSave.
       const result = await documentService.updateDocument({
         content: currentContent,
-        editorData: JSON.stringify(normalizedEditorData),
+        editorData: JSON.stringify(currentEditorData),
         id,
         metadata: metadata?.emoji ? { emoji: metadata.emoji } : undefined,
         restoreFromHistoryId: options?.restoreFromHistoryId,
@@ -199,11 +198,11 @@ export class EditorActionImpl {
         id,
         type: 'updateDocument',
         value: {
-          editorData: structuredClone(normalizedEditorData),
+          editorData: structuredClone(currentEditorData),
 
           isDirty: false,
           lastSavedContent: currentContent,
-          lastSavedEditorData: structuredClone(normalizedEditorData),
+          lastSavedEditorData: structuredClone(currentEditorData),
           lastUpdatedTime: result.savedAt ? new Date(result.savedAt) : new Date(),
           saveStatus: 'saved',
         },

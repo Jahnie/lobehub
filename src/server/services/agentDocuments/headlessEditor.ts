@@ -51,13 +51,13 @@ const toHeadlessLiteXMLOperation = (
         ? {
             action: 'insert',
             beforeId: operation.beforeId,
-            delay: false,
+            delay: true,
             litexml: operation.litexml,
           }
         : {
             action: 'insert',
             afterId: operation.afterId,
-            delay: false,
+            delay: true,
             litexml: operation.litexml,
           };
     }
@@ -65,7 +65,7 @@ const toHeadlessLiteXMLOperation = (
     case 'modify': {
       return {
         action: 'replace',
-        delay: false,
+        delay: true,
         litexml: operation.litexml,
       };
     }
@@ -73,7 +73,7 @@ const toHeadlessLiteXMLOperation = (
     case 'remove': {
       return {
         action: 'remove',
-        delay: false,
+        delay: true,
         id: operation.id,
       };
     }

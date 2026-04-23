@@ -305,15 +305,20 @@ export class DocumentService {
         throw new Error(`Document not found: ${id}`);
       }
 
-      const currentEditorData = normalizeEditorDataDiffNodes(
+      // Accepted-view projections used only for historyAppended comparison and
+      // for the "before" snapshot written into history. The persisted editorData
+      // keeps any pending diff nodes — they're only normalized when the user
+      // explicitly accepts/rejects via DiffAllToolbar.
+      const currentEditorDataAccepted = normalizeEditorDataDiffNodes(
         (currentDocument.editorData ?? {}) as Record<string, any>,
       );
-      const nextEditorData =
+      const nextEditorDataAccepted =
         params.editorData === undefined
           ? undefined
           : normalizeEditorDataDiffNodes(params.editorData);
       const historyAppended =
-        nextEditorData !== undefined && !isEqual(nextEditorData, currentEditorData);
+        nextEditorDataAccepted !== undefined &&
+        !isEqual(nextEditorDataAccepted, currentEditorDataAccepted);
 
       const updates: Record<string, unknown> = {};
 
@@ -323,8 +328,8 @@ export class DocumentService {
         updates.totalLineCount = params.content.split('\n').length;
       }
 
-      if (nextEditorData !== undefined) {
-        updates.editorData = nextEditorData;
+      if (params.editorData !== undefined) {
+        updates.editorData = params.editorData;
       }
 
       if (params.fileType !== undefined) {
@@ -350,7 +355,7 @@ export class DocumentService {
         savedAt = new Date();
         await documentHistoryService.createHistory({
           documentId: id,
-          editorData: currentEditorData,
+          editorData: currentEditorDataAccepted,
           saveSource: params.saveSource ?? 'autosave',
           savedAt,
         });

@@ -604,7 +604,7 @@ describe('DocumentService', () => {
       expect(result.savedAt).toBeInstanceOf(Date);
     });
 
-    it('should normalize diff nodes before appending history and updating editorData', async () => {
+    it('should persist raw editorData with diff nodes and normalize only the history snapshot', async () => {
       const editorData = {
         root: {
           children: [
@@ -624,11 +624,6 @@ describe('DocumentService', () => {
           ],
         },
       };
-      const normalizedEditorData = {
-        root: {
-          children: [{ children: [{ text: 'next origin', type: 'text' }], type: 'paragraph' }],
-        },
-      };
       mockDocumentModel.update.mockResolvedValue({ id: 'doc-1' });
       mockDocumentModel.findById.mockResolvedValue(
         createCurrentDocument({ editorData: createEditorDataWithDiffNode() }),
@@ -636,10 +631,13 @@ describe('DocumentService', () => {
 
       const result = await service.updateDocument('doc-1', { editorData, saveSource: 'manual' });
 
+      // Persisted editorData keeps the diff nodes — DiffAllToolbar can render
+      // them for human review on next open.
       expect(mockDocumentModel.update).toHaveBeenCalledWith(
         'doc-1',
-        expect.objectContaining({ editorData: normalizedEditorData }),
+        expect.objectContaining({ editorData }),
       );
+      // History snapshot still captures the pre-update accepted view.
       expect(mockDocumentHistoryService.createHistory).toHaveBeenCalledWith(
         expect.objectContaining({
           documentId: 'doc-1',

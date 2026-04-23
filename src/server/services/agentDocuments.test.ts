@@ -493,7 +493,7 @@ describe('AgentDocumentsService', () => {
       expect(headlessEditorMocks.applyLiteXML).toHaveBeenCalledWith([
         {
           action: 'replace',
-          delay: false,
+          delay: true,
           litexml: '<p id="node-1">xml updated</p>',
         },
       ]);

@@ -25,7 +25,7 @@ const getSpanId = (litexml: string, text: string): string => {
 };
 
 describe('agent document headless editor', () => {
-  it('should apply LiteXML operations directly without persisting diff nodes', async () => {
+  it('should apply LiteXML operations and persist diff nodes for later human review', async () => {
     const initial = await exportEditorDataSnapshot({
       fallbackContent: 'Original',
       litexml: true,
@@ -43,8 +43,14 @@ describe('agent document headless editor', () => {
       ],
     });
 
+    // Markdown and LiteXML exports are auto-normalized by the headless editor,
+    // so they show the accepted view — this is what Context Engine injects and
+    // what LLMs see when reading the document.
     expect(snapshot.content).toBe('Updated\n');
-    expect(hasNodeType(snapshot.editorData, 'diff')).toBe(false);
     expect(snapshot.litexml).toContain('Updated');
+
+    // editorData (the persisted form) retains the diff node so the page editor
+    // can render a review UI when the user next opens the document.
+    expect(hasNodeType(snapshot.editorData, 'diff')).toBe(true);
   });
 });

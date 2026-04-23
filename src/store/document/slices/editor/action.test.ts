@@ -497,7 +497,7 @@ describe('DocumentStore - Editor Actions', () => {
       expect(result.current.documents['doc-1'].isDirty).toBe(false);
     });
 
-    it('should save and write back origin editorData when the editor contains diff nodes', async () => {
+    it('should save and persist raw editorData with diff nodes (pending human review)', async () => {
       const { result } = renderHook(() => useDocumentStore());
       const editorData = {
         root: {
@@ -516,12 +516,6 @@ describe('DocumentStore - Editor Actions', () => {
               type: 'diff',
             },
           ],
-          type: 'root',
-        },
-      };
-      const normalizedEditorData = {
-        root: {
-          children: [{ children: [{ text: 'origin', type: 'text' }], type: 'paragraph' }],
           type: 'root',
         },
       };
@@ -548,14 +542,16 @@ describe('DocumentStore - Editor Actions', () => {
         await result.current.performSave('doc-1');
       });
 
+      // Autosave preserves diff nodes; DiffAllToolbar surfaces Accept/Reject
+      // on the next render and only then does the editor normalize the state.
       expect(documentService.updateDocument).toHaveBeenCalledWith(
         expect.objectContaining({
-          editorData: JSON.stringify(normalizedEditorData),
+          editorData: JSON.stringify(editorData),
           id: 'doc-1',
         }),
       );
-      expect(result.current.documents['doc-1'].editorData).toEqual(normalizedEditorData);
-      expect(result.current.documents['doc-1'].lastSavedEditorData).toEqual(normalizedEditorData);
+      expect(result.current.documents['doc-1'].editorData).toEqual(editorData);
+      expect(result.current.documents['doc-1'].lastSavedEditorData).toEqual(editorData);
     });
 
     it('should pass restore metadata through updateDocument', async () => {
