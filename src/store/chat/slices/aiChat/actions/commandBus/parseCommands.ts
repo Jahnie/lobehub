@@ -17,6 +17,21 @@ export interface ParsedActionTag {
 
 export interface ParsedCommand extends ParsedActionTag {}
 
+interface MentionNodeMatch {
+  agent: RuntimeMentionedAgent;
+  node: any;
+}
+
+interface MentionNodeOccurrence {
+  label: string;
+  metadata: Record<string, unknown>;
+  node: any;
+}
+
+export interface SingleFirstLineAgentMentionDirectRoute {
+  targetAgent: RuntimeMentionedAgent;
+}
+
 /**
  * Walk the Lexical JSON tree to find all action-tag nodes.
  * Returns the extracted action tags in document order.
@@ -92,20 +107,34 @@ export const parseMentionedAgentsFromEditorData = (
 ): RuntimeMentionedAgent[] => {
   if (!editorData) return [];
 
-  const agents: RuntimeMentionedAgent[] = [];
   const seen = new Set<string>();
+  const mentions = collectAgentMentionOccurrences(editorData.root);
 
-  walkMentionNode(editorData.root, (label, metadata) => {
-    // Only accept explicit agent mentions — skip topics, ALL_MEMBERS, and other types
-    if (metadata?.type !== 'agent') return;
-    const id = metadata?.id as string | undefined;
-    if (!id || seen.has(id)) return;
+  return mentions.reduce<RuntimeMentionedAgent[]>((agents, mention) => {
+    if (seen.has(mention.agent.id)) return agents;
 
-    seen.add(id);
-    agents.push({ id, name: label || id });
-  });
+    seen.add(mention.agent.id);
+    agents.push(mention.agent);
 
-  return agents;
+    return agents;
+  }, []);
+};
+
+export const parseSingleFirstLineAgentMentionDirectRoute = (
+  editorData: Record<string, any> | undefined,
+): SingleFirstLineAgentMentionDirectRoute | undefined => {
+  if (!editorData) return;
+
+  const allMentions = collectMentionOccurrences(editorData.root);
+  if (allMentions.length !== 1) return;
+
+  const mentions = collectAgentMentionOccurrences(editorData.root);
+  if (mentions.length !== 1) return;
+
+  const firstMeaningfulNode = findFirstMeaningfulNode(editorData.root);
+  if (firstMeaningfulNode !== mentions[0].node) return;
+
+  return { targetAgent: mentions[0].agent };
 };
 
 /**
@@ -132,13 +161,54 @@ function collectText(node: any, out: string[]): void {
   }
 }
 
+function collectAgentMentionOccurrences(node: any): MentionNodeMatch[] {
+  const mentions: MentionNodeMatch[] = [];
+  for (const mention of collectMentionOccurrences(node)) {
+    // Only accept explicit agent mentions — skip topics, ALL_MEMBERS, and other types
+    if (mention.metadata?.type !== 'agent') continue;
+    const id = mention.metadata?.id as string | undefined;
+    if (!id) continue;
+
+    mentions.push({
+      agent: { id, name: mention.label || id },
+      node: mention.node,
+    });
+  }
+  return mentions;
+}
+
+function collectMentionOccurrences(node: any): MentionNodeOccurrence[] {
+  const mentions: MentionNodeOccurrence[] = [];
+  walkMentionNode(node, (mentionNode, label, metadata) => {
+    mentions.push({ label, metadata, node: mentionNode });
+  });
+  return mentions;
+}
+
+function findFirstMeaningfulNode(node: any): any | undefined {
+  if (!node) return;
+
+  if (node.type === 'text') {
+    return typeof node.text === 'string' && node.text.trim().length > 0 ? node : undefined;
+  }
+
+  if (node.type === 'mention' || node.type === 'action-tag') return node;
+
+  if (Array.isArray(node.children)) {
+    for (const child of node.children) {
+      const meaningfulNode = findFirstMeaningfulNode(child);
+      if (meaningfulNode) return meaningfulNode;
+    }
+  }
+}
+
 function walkMentionNode(
   node: any,
-  cb: (label: string, metadata: Record<string, unknown>) => void,
+  cb: (node: any, label: string, metadata: Record<string, unknown>) => void,
 ): void {
   if (!node) return;
   if (node.type === 'mention' && node.metadata) {
-    cb(node.label ?? '', node.metadata);
+    cb(node, node.label ?? '', node.metadata);
   }
   if (Array.isArray(node.children)) {
     for (const child of node.children) {

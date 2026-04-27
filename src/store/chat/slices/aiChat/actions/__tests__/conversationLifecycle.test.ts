@@ -903,7 +903,7 @@ describe('ConversationLifecycle actions', () => {
     });
 
     describe('@agent mention delegation', () => {
-      it('should NOT set isSupervisor on assistant message when @agent is mentioned in non-group chat', async () => {
+      it('should route directly to the single first-line @agent in non-group chat', async () => {
         const { result } = renderHook(() => useChatStore());
 
         const sendMessageInServerSpy = vi
@@ -944,9 +944,9 @@ describe('ConversationLifecycle actions', () => {
           });
         });
 
-        // Assistant message metadata should NOT contain isSupervisor
         expect(sendMessageInServerSpy).toHaveBeenCalledWith(
           expect.objectContaining({
+            agentId: 'agent-a',
             newAssistantMessage: expect.objectContaining({
               metadata: undefined,
             }),
@@ -954,16 +954,130 @@ describe('ConversationLifecycle actions', () => {
           expect.any(AbortController),
         );
 
-        // But runtime should receive mentionedAgents in initialContext
-        expect(result.current.internal_execAgentRuntime).toHaveBeenCalledWith(
+        const execCall = (result.current.internal_execAgentRuntime as any).mock.calls[0]?.[0];
+        expect(execCall?.context.agentId).toBe('agent-a');
+        expect(execCall?.initialContext?.initialContext?.mentionedAgents).toBeUndefined();
+        expect(execCall?.initialContext?.initialContext?.injectedManifests).toBeUndefined();
+      });
+
+      it('should keep supervisor callAgent delegation for multiple @agent mentions in non-group chat', async () => {
+        const { result } = renderHook(() => useChatStore());
+
+        const sendMessageInServerSpy = vi
+          .spyOn(aiChatService, 'sendMessageInServer')
+          .mockResolvedValue({
+            messages: [
+              createMockMessage({ id: TEST_IDS.USER_MESSAGE_ID, role: 'user' }),
+              createMockMessage({ id: TEST_IDS.ASSISTANT_MESSAGE_ID, role: 'assistant' }),
+            ],
+            topics: [],
+            assistantMessageId: TEST_IDS.ASSISTANT_MESSAGE_ID,
+            userMessageId: TEST_IDS.USER_MESSAGE_ID,
+          } as any);
+
+        await act(async () => {
+          await result.current.sendMessage({
+            message: '@Agent A @Agent B compare options',
+            editorData: {
+              root: {
+                children: [
+                  {
+                    children: [
+                      {
+                        label: 'Agent A',
+                        metadata: { id: 'agent-a', type: 'agent' },
+                        type: 'mention',
+                      },
+                      { text: ' ', type: 'text' },
+                      {
+                        label: 'Agent B',
+                        metadata: { id: 'agent-b', type: 'agent' },
+                        type: 'mention',
+                      },
+                      { text: ' compare options', type: 'text' },
+                    ],
+                    type: 'paragraph',
+                  },
+                ],
+                type: 'root',
+              },
+            } as any,
+            context: createTestContext(),
+          });
+        });
+
+        expect(sendMessageInServerSpy).toHaveBeenCalledWith(
           expect.objectContaining({
-            initialContext: expect.objectContaining({
-              initialContext: expect.objectContaining({
-                mentionedAgents: [{ id: 'agent-a', name: 'Agent A' }],
-              }),
-            }),
+            agentId: TEST_IDS.SESSION_ID,
           }),
+          expect.any(AbortController),
         );
+
+        const execCall = (result.current.internal_execAgentRuntime as any).mock.calls[0]?.[0];
+        expect(execCall?.context.agentId).toBe(TEST_IDS.SESSION_ID);
+        expect(execCall?.initialContext?.initialContext?.mentionedAgents).toEqual([
+          { id: 'agent-a', name: 'Agent A' },
+          { id: 'agent-b', name: 'Agent B' },
+        ]);
+        expect(execCall?.initialContext?.initialContext?.injectedManifests).toHaveLength(1);
+      });
+
+      it('should keep supervisor callAgent delegation when @agent is not on the first line', async () => {
+        const { result } = renderHook(() => useChatStore());
+
+        const sendMessageInServerSpy = vi
+          .spyOn(aiChatService, 'sendMessageInServer')
+          .mockResolvedValue({
+            messages: [
+              createMockMessage({ id: TEST_IDS.USER_MESSAGE_ID, role: 'user' }),
+              createMockMessage({ id: TEST_IDS.ASSISTANT_MESSAGE_ID, role: 'assistant' }),
+            ],
+            topics: [],
+            assistantMessageId: TEST_IDS.ASSISTANT_MESSAGE_ID,
+            userMessageId: TEST_IDS.USER_MESSAGE_ID,
+          } as any);
+
+        await act(async () => {
+          await result.current.sendMessage({
+            message: 'Please route this\n@Agent A',
+            editorData: {
+              root: {
+                children: [
+                  {
+                    children: [{ text: 'Please route this', type: 'text' }],
+                    type: 'paragraph',
+                  },
+                  {
+                    children: [
+                      {
+                        label: 'Agent A',
+                        metadata: { id: 'agent-a', type: 'agent' },
+                        type: 'mention',
+                      },
+                    ],
+                    type: 'paragraph',
+                  },
+                ],
+                type: 'root',
+              },
+            } as any,
+            context: createTestContext(),
+          });
+        });
+
+        expect(sendMessageInServerSpy).toHaveBeenCalledWith(
+          expect.objectContaining({
+            agentId: TEST_IDS.SESSION_ID,
+          }),
+          expect.any(AbortController),
+        );
+
+        const execCall = (result.current.internal_execAgentRuntime as any).mock.calls[0]?.[0];
+        expect(execCall?.context.agentId).toBe(TEST_IDS.SESSION_ID);
+        expect(execCall?.initialContext?.initialContext?.mentionedAgents).toEqual([
+          { id: 'agent-a', name: 'Agent A' },
+        ]);
+        expect(execCall?.initialContext?.initialContext?.injectedManifests).toHaveLength(1);
       });
 
       it('should NOT inject mentionedAgents into initialContext when in group chat', async () => {
@@ -979,15 +1093,17 @@ describe('ConversationLifecycle actions', () => {
           },
         } as any);
 
-        vi.spyOn(aiChatService, 'sendMessageInServer').mockResolvedValue({
-          messages: [
-            createMockMessage({ id: TEST_IDS.USER_MESSAGE_ID, role: 'user' }),
-            createMockMessage({ id: TEST_IDS.ASSISTANT_MESSAGE_ID, role: 'assistant' }),
-          ],
-          topics: [],
-          assistantMessageId: TEST_IDS.ASSISTANT_MESSAGE_ID,
-          userMessageId: TEST_IDS.USER_MESSAGE_ID,
-        } as any);
+        const sendMessageInServerSpy = vi
+          .spyOn(aiChatService, 'sendMessageInServer')
+          .mockResolvedValue({
+            messages: [
+              createMockMessage({ id: TEST_IDS.USER_MESSAGE_ID, role: 'user' }),
+              createMockMessage({ id: TEST_IDS.ASSISTANT_MESSAGE_ID, role: 'assistant' }),
+            ],
+            topics: [],
+            assistantMessageId: TEST_IDS.ASSISTANT_MESSAGE_ID,
+            userMessageId: TEST_IDS.USER_MESSAGE_ID,
+          } as any);
 
         await act(async () => {
           await result.current.sendMessage({
@@ -1020,8 +1136,16 @@ describe('ConversationLifecycle actions', () => {
           });
         });
 
+        expect(sendMessageInServerSpy).toHaveBeenCalledWith(
+          expect.objectContaining({
+            agentId: 'sub-agent-id',
+          }),
+          expect.any(AbortController),
+        );
+
         // Runtime should NOT receive mentionedAgents in group context
         const execCall = (result.current.internal_execAgentRuntime as any).mock.calls[0]?.[0];
+        expect(execCall?.context.agentId).toBe('sub-agent-id');
         const initialCtx = execCall?.initialContext?.initialContext;
         expect(initialCtx?.mentionedAgents).toBeUndefined();
       });

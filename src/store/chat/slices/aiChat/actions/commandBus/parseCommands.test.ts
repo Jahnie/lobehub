@@ -5,6 +5,7 @@ import {
   parseMentionedAgentsFromEditorData,
   parseSelectedSkillsFromEditorData,
   parseSelectedToolsFromEditorData,
+  parseSingleFirstLineAgentMentionDirectRoute,
 } from './parseCommands';
 
 describe('parseCommandsFromEditorData', () => {
@@ -498,5 +499,141 @@ describe('parseMentionedAgentsFromEditorData', () => {
     expect(parseMentionedAgentsFromEditorData(editorData)).toEqual([
       { id: 'agent-no-label', name: 'agent-no-label' },
     ]);
+  });
+});
+
+describe('parseSingleFirstLineAgentMentionDirectRoute', () => {
+  it('should return target agent when the only agent mention starts the first non-empty paragraph', () => {
+    const editorData = {
+      root: {
+        children: [
+          {
+            children: [{ text: '   ', type: 'text' }],
+            type: 'paragraph',
+          },
+          {
+            children: [
+              {
+                label: 'Agent A',
+                metadata: { id: 'agent-a', type: 'agent' },
+                type: 'mention',
+              },
+              { text: ' please handle this', type: 'text' },
+            ],
+            type: 'paragraph',
+          },
+        ],
+        type: 'root',
+      },
+    };
+
+    expect(parseSingleFirstLineAgentMentionDirectRoute(editorData)).toEqual({
+      targetAgent: { id: 'agent-a', name: 'Agent A' },
+    });
+  });
+
+  it('should return undefined when there are multiple agent mention occurrences', () => {
+    const editorData = {
+      root: {
+        children: [
+          {
+            children: [
+              {
+                label: 'Agent A',
+                metadata: { id: 'agent-a', type: 'agent' },
+                type: 'mention',
+              },
+              { text: ' and ', type: 'text' },
+              {
+                label: 'Agent B',
+                metadata: { id: 'agent-b', type: 'agent' },
+                type: 'mention',
+              },
+            ],
+            type: 'paragraph',
+          },
+        ],
+        type: 'root',
+      },
+    };
+
+    expect(parseSingleFirstLineAgentMentionDirectRoute(editorData)).toBeUndefined();
+  });
+
+  it('should return undefined when another non-agent mention appears later', () => {
+    const editorData = {
+      root: {
+        children: [
+          {
+            children: [
+              {
+                label: 'Agent A',
+                metadata: { id: 'agent-a', type: 'agent' },
+                type: 'mention',
+              },
+              { text: ' compare with ', type: 'text' },
+              {
+                label: 'Topic X',
+                metadata: { id: 'topic-x', topicId: 'topic-x', type: 'topic' },
+                type: 'mention',
+              },
+            ],
+            type: 'paragraph',
+          },
+        ],
+        type: 'root',
+      },
+    };
+
+    expect(parseSingleFirstLineAgentMentionDirectRoute(editorData)).toBeUndefined();
+  });
+
+  it('should return undefined when the first non-empty paragraph does not start with the mention', () => {
+    const editorData = {
+      root: {
+        children: [
+          {
+            children: [
+              { text: 'Please ask ', type: 'text' },
+              {
+                label: 'Agent A',
+                metadata: { id: 'agent-a', type: 'agent' },
+                type: 'mention',
+              },
+            ],
+            type: 'paragraph',
+          },
+        ],
+        type: 'root',
+      },
+    };
+
+    expect(parseSingleFirstLineAgentMentionDirectRoute(editorData)).toBeUndefined();
+  });
+
+  it('should return undefined when the mention is not in the first non-empty paragraph', () => {
+    const editorData = {
+      root: {
+        children: [
+          {
+            children: [{ text: 'First line', type: 'text' }],
+            type: 'paragraph',
+          },
+          {
+            children: [
+              {
+                label: 'Agent A',
+                metadata: { id: 'agent-a', type: 'agent' },
+                type: 'mention',
+              },
+            ],
+            type: 'paragraph',
+          },
+        ],
+        type: 'root',
+      },
+    };
+
+    expect(parseSingleFirstLineAgentMentionDirectRoute(editorData)).toBeUndefined();
   });
 });

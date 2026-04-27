@@ -12,6 +12,7 @@ export {
   parseMentionedAgentsFromEditorData,
   parseSelectedSkillsFromEditorData,
   parseSelectedToolsFromEditorData,
+  parseSingleFirstLineAgentMentionDirectRoute,
 } from './parseCommands';
 export type { CommandSendOverrides } from './types';
 

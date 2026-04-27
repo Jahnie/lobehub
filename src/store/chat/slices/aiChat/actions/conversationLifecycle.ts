@@ -54,6 +54,7 @@ import {
   parseMentionedAgentsFromEditorData,
   parseSelectedSkillsFromEditorData,
   parseSelectedToolsFromEditorData,
+  parseSingleFirstLineAgentMentionDirectRoute,
   processCommands,
 } from './commandBus';
 /**
@@ -134,9 +135,12 @@ export class ConversationLifecycleActionImpl {
     const selectedSkills = parseSelectedSkillsFromEditorData(editorData);
     const selectedTools = parseSelectedToolsFromEditorData(editorData);
     const mentionedAgents = parseMentionedAgentsFromEditorData(editorData);
+    const directMentionRoute = !context.groupId
+      ? parseSingleFirstLineAgentMentionDirectRoute(editorData)
+      : undefined;
 
     // Use context from params (required)
-    const { agentId } = context;
+    const requestedAgentId = context.agentId;
     // If creating new thread (isNew + scope='thread'), threadId will be created by server
     const isCreatingNewThread = context.isNew && context.scope === 'thread';
     // Build newThread params for server from new context format
@@ -149,7 +153,7 @@ export class ConversationLifecycleActionImpl {
           }
         : undefined;
 
-    if (!agentId) return;
+    if (!requestedAgentId) return;
 
     // ── Command Bus: extract and process built-in commands from editorData ──
     const commandOverrides: CommandSendOverrides = processCommands({
@@ -198,18 +202,25 @@ export class ConversationLifecycleActionImpl {
       context = { ...context, topicId: undefined };
     }
 
-    // When creating new thread, override threadId to undefined (server will create it)
+    // Direct first-line @agent routes this turn to the target agent instead of
+    // asking the current agent to delegate through callAgent.
+    const agentId = directMentionRoute?.targetAgent.id ?? context.agentId;
+    if (!agentId) return;
+
     // Check if current agentId is the supervisor agent of the group
     let isGroupSupervisor = false;
     if (context.groupId) {
       const group = agentGroupByIdSelectors.groupById(context.groupId)(getChatGroupStoreState());
       isGroupSupervisor = group?.supervisorAgentId === agentId;
     }
-    // In non-group context, @agent mentions make the current agent act as supervisor
-    const hasMentionedAgents = !context.groupId && mentionedAgents.length > 0;
+    // In non-group context, non-direct @agent mentions make the current agent act as supervisor
+    const hasMentionedAgents =
+      !context.groupId && !directMentionRoute && mentionedAgents.length > 0;
 
     const operationContext = {
       ...context,
+      agentId,
+      // When creating new thread, override threadId to undefined (server will create it)
       ...(isCreatingNewThread && { threadId: undefined }),
       // Only set isSupervisor for actual group supervisors — NOT for @agent mentions.
       // isSupervisor triggers group-specific UI rendering (SupervisorMessage with group avatars).
@@ -270,7 +281,7 @@ export class ConversationLifecycleActionImpl {
 
     // Use provided messages or query from store
     // For /newTopic from existing topic, start with empty message list (fresh topic)
-    const contextKey = messageMapKey(context);
+    const contextKey = messageMapKey(operationContext);
     const messages = forceNewTopicFromExisting
       ? []
       : (inputMessages ?? displayMessageSelectors.getDisplayMessagesByKey(contextKey)(this.#get()));
