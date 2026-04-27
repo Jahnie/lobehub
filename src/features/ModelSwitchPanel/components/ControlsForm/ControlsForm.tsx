@@ -104,7 +104,7 @@ const ControlsForm = memo<ControlsFormProps>(({ model: modelProp, provider: prov
 
   const screens = Grid.useBreakpoint();
   const isNarrow = !screens.sm;
-  const gpt52ReasoningEffortDefaultValue = model === 'gpt-5.5' ? 'medium' : 'none';
+  const gpt52ReasoningEffortDefaultValue = model?.startsWith('gpt-5.5') ? 'medium' : 'none';
 
   const descWide = { display: 'inline-block', width: 300 } as const;
   const descNarrow = {
