@@ -579,7 +579,6 @@
   "taskSchedule.scheduler": "定时任务",
   "taskSchedule.schedulerNotReady": "定时任务即将上线。暂时请使用“循环任务”。",
   "taskSchedule.schedulerTab": "定时任务",
-  "taskSchedule.seconds": "秒",
   "taskSchedule.tag.add": "设置计划",
   "taskSchedule.tag.every": "每 {{interval}}",
   "taskSchedule.tag.heartbeat": "心跳 · {{every}}",

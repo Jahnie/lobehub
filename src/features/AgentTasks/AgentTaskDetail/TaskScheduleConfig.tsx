@@ -18,7 +18,9 @@ import { useTranslation } from 'react-i18next';
 import { useTaskStore } from '@/store/task';
 import { taskDetailSelectors } from '@/store/task/selectors';
 
-type IntervalUnit = 'hours' | 'minutes' | 'seconds';
+type IntervalUnit = 'hours' | 'minutes';
+
+const MIN_MINUTES = 10;
 
 interface IntervalTabProps {
   currentInterval: number;
@@ -34,9 +36,10 @@ const IntervalTab = memo<IntervalTabProps>(({ currentInterval, taskId }) => {
       return { displayValue: undefined, unit: 'minutes' as IntervalUnit };
     if (currentInterval >= 3600 && currentInterval % 3600 === 0)
       return { displayValue: currentInterval / 3600, unit: 'hours' as IntervalUnit };
-    if (currentInterval >= 60 && currentInterval % 60 === 0)
-      return { displayValue: currentInterval / 60, unit: 'minutes' as IntervalUnit };
-    return { displayValue: currentInterval, unit: 'seconds' as IntervalUnit };
+    return {
+      displayValue: Math.max(MIN_MINUTES, Math.round(currentInterval / 60)),
+      unit: 'minutes' as IntervalUnit,
+    };
   }, [currentInterval]);
 
   const [localUnit, setLocalUnit] = useState<IntervalUnit>(derived.unit);
@@ -49,17 +52,7 @@ const IntervalTab = memo<IntervalTabProps>(({ currentInterval, taskId }) => {
 
   const toSeconds = (val: number | null, u: IntervalUnit): number | null => {
     if (!val || val <= 0) return null;
-    switch (u) {
-      case 'hours': {
-        return val * 3600;
-      }
-      case 'minutes': {
-        return val * 60;
-      }
-      default: {
-        return val;
-      }
-    }
+    return u === 'hours' ? val * 3600 : val * 60;
   };
 
   const handleValueChange = useCallback(
@@ -85,7 +78,9 @@ const IntervalTab = memo<IntervalTabProps>(({ currentInterval, taskId }) => {
     (u: IntervalUnit) => {
       setLocalUnit(u);
       if (!taskId || !localValue) return;
-      const seconds = toSeconds(localValue, u);
+      const clamped = u === 'minutes' ? Math.max(MIN_MINUTES, localValue) : localValue;
+      if (clamped !== localValue) setLocalValue(clamped);
+      const seconds = toSeconds(clamped, u);
       updatePeriodicInterval(taskId, seconds);
     },
     [taskId, localValue, updatePeriodicInterval],
@@ -102,8 +97,8 @@ const IntervalTab = memo<IntervalTabProps>(({ currentInterval, taskId }) => {
         <Text weight={500}>{t('taskSchedule.every')}</Text>
         <Flexbox horizontal align="center" gap={8}>
           <InputNumber
-            min={1}
-            placeholder="10"
+            min={localUnit === 'minutes' ? MIN_MINUTES : 1}
+            placeholder={localUnit === 'minutes' ? String(MIN_MINUTES) : '1'}
             size={'small'}
             style={{ width: 80 }}
             value={localValue}
@@ -115,7 +110,6 @@ const IntervalTab = memo<IntervalTabProps>(({ currentInterval, taskId }) => {
             value={localUnit}
             variant="outlined"
             options={[
-              { label: t('taskSchedule.seconds'), value: 'seconds' },
               { label: t('taskSchedule.minutes'), value: 'minutes' },
               { label: t('taskSchedule.hours'), value: 'hours' },
             ]}

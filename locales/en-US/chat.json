@@ -579,7 +579,6 @@
   "taskSchedule.scheduler": "Scheduler",
   "taskSchedule.schedulerNotReady": "Scheduler is coming soon. Use Recurring for now.",
   "taskSchedule.schedulerTab": "Scheduler",
-  "taskSchedule.seconds": "Seconds",
   "taskSchedule.tag.add": "Set schedule",
   "taskSchedule.tag.every": "Every {{interval}}",
   "taskSchedule.tag.heartbeat": "Heartbeat · {{every}}",
