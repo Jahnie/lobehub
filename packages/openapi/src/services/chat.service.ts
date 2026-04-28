@@ -99,7 +99,7 @@ export class ChatService extends BaseService {
         provider: translationConfig?.provider || defaults.provider,
       };
     } catch (error) {
-      this.log('warn', '读取系统翻译模型配置失败，使用默认配置', {
+      this.log('warn', 'Failed to read system translation model config, using defaults', {
         error: this.extractErrorMessage(error),
         userId: this.userId,
       });
@@ -121,7 +121,7 @@ export class ChatService extends BaseService {
 
       return agent?.chatConfig || null;
     } catch (error) {
-      this.log('warn', '获取 Agent 配置失败', {
+      this.log('warn', 'Failed to get Agent config', {
         agentId,
         error: error instanceof Error ? error.message : String(error),
         userId: this.userId,
@@ -177,7 +177,7 @@ export class ChatService extends BaseService {
     });
 
     if (!aiProviderConfigs || aiProviderConfigs.length === 0) {
-      this.log('info', '未找到有效的AI Provider配置，使用兜底环境变量配置', {
+      this.log('info', 'No valid AI Provider config found, using fallback env vars', {
         provider,
         userId: this.userId,
       });
@@ -232,7 +232,7 @@ export class ChatService extends BaseService {
    */
   private async handleStreamResponse(response: Response): Promise<string> {
     const reader = response.body?.getReader();
-    if (!reader) throw new Error('无法获取响应流');
+    if (!reader) throw new Error('Unable to get response stream');
 
     let finalContent = '';
     const decoder = new TextDecoder();
@@ -283,7 +283,7 @@ export class ChatService extends BaseService {
         }
       }
 
-      throw new Error(`响应解析失败: ${text.slice(0, 100)}`);
+      throw new Error(`Response parsing failed: ${text.slice(0, 100)}`);
     }
   }
 
@@ -302,13 +302,13 @@ export class ChatService extends BaseService {
       targetModelId: params.model,
     });
     if (!permissionModel.isPermitted) {
-      throw this.createAuthorizationError(permissionModel.message || '无权限操作');
+      throw this.createAuthorizationError(permissionModel.message || 'No permission');
     }
 
     const provider = params.provider || this.config.defaultProvider!;
     const model = params.model || this.config.defaultModel!;
 
-    this.log('info', '开始聊天对话', {
+    this.log('info', 'Starting chat conversation', {
       messageCount: params.messages.length,
       model,
       provider,
@@ -367,7 +367,7 @@ export class ChatService extends BaseService {
         result = await this.handleNonStreamResponse(response);
       }
 
-      this.log('info', '聊天对话完成', {
+      this.log('info', 'Chat conversation complete', {
         hasContent: !!result.choices?.[0]?.message?.content,
         model,
         provider,
@@ -400,12 +400,12 @@ export class ChatService extends BaseService {
         errorDetails = { rawError: String(error) };
       }
 
-      this.log('error', '聊天对话失败', {
+      this.log('error', 'Chat conversation failed', {
         error: errorDetails,
         model,
         provider,
       });
-      throw this.createCommonError(`聊天对话失败: ${this.extractErrorMessage(error)}`);
+      throw this.createCommonError(`Chat conversation failed: ${this.extractErrorMessage(error)}`);
     }
   }
 
@@ -437,17 +437,17 @@ export class ChatService extends BaseService {
     if (!modelScopedPermission.isPermitted) {
       const fallbackPermission = await this.resolveOperationPermission('AI_MODEL_INVOKE');
       if (!fallbackPermission.isPermitted) {
-        throw this.createAuthorizationError(modelScopedPermission.message || '无权限操作');
+        throw this.createAuthorizationError(modelScopedPermission.message || 'No permission');
       }
 
-      this.log('warn', '模型级权限校验失败，已回退到通用模型调用权限校验', {
+      this.log('warn', 'Model-level permission check failed, falling back to general model invocation permission check', {
         model: finalModel,
         provider: finalProvider,
         userId: this.userId,
       });
     }
 
-    this.log('info', '开始翻译文本', {
+    this.log('info', 'Starting text translation', {
       ...request,
       model: finalModel,
       provider: finalProvider,
@@ -486,7 +486,7 @@ export class ChatService extends BaseService {
 
       const response = await this.chat(chatParams);
 
-      this.log('info', '翻译文本完成', {
+      this.log('info', 'Text translation complete', {
         model: finalModel,
         provider: finalProvider,
         resultLength: response.content.length,
@@ -494,7 +494,7 @@ export class ChatService extends BaseService {
 
       return response.content;
     } catch (error) {
-      this.handleServiceError(error, '翻译文本');
+      this.handleServiceError(error, 'translate text');
     }
   }
 
@@ -509,10 +509,10 @@ export class ChatService extends BaseService {
       targetModelId: params.model,
     });
     if (!permissionModel.isPermitted) {
-      throw this.createAuthorizationError(permissionModel.message || '无权限操作');
+      throw this.createAuthorizationError(permissionModel.message || 'No permission');
     }
 
-    this.log('info', '开始生成消息回复', {
+    this.log('info', 'Starting message reply generation', {
       agentId: params.agentId,
       hasUserChatConfig: !!params.chatConfig,
       historyLength: params.conversationHistory.length,
@@ -541,7 +541,7 @@ export class ChatService extends BaseService {
       // 3. Build search parameters
       const searchParams = this.buildSearchParams(mergedChatConfig);
 
-      this.log('info', '会话配置合并完成', {
+      this.log('info', 'Session config merged', {
         enabledSearch: searchParams.enabledSearch,
         searchMode: mergedChatConfig.searchMode,
         useModelBuiltinSearch: mergedChatConfig.useModelBuiltinSearch,
@@ -553,7 +553,7 @@ export class ChatService extends BaseService {
         { content: params.userMessage, role: 'user' as const },
       ];
 
-      this.log('info', '使用模型配置', {
+      this.log('info', 'Using model config', {
         model: modelConfig.model,
         provider: modelConfig.provider,
         source: params.provider
@@ -580,7 +580,7 @@ export class ChatService extends BaseService {
         },
       );
 
-      this.log('info', '生成消息回复完成', {
+      this.log('info', 'Message reply generated', {
         model: modelConfig.model,
         provider: modelConfig.provider,
         replyLength: response.content.length,
@@ -589,12 +589,12 @@ export class ChatService extends BaseService {
 
       return response.content;
     } catch (error) {
-      this.log('error', '生成消息回复失败', {
+      this.log('error', 'Message reply generation failed', {
         agentId: params.agentId,
         error: error instanceof Error ? error.message : String(error),
         hasUserChatConfig: !!params.chatConfig,
       });
-      throw this.createCommonError('生成回复失败');
+      throw this.createCommonError('Failed to generate reply');
     }
   }
 
@@ -632,15 +632,15 @@ export class ChatService extends BaseService {
           .where(and(eq(agentsToSessions.sessionId, params.sessionId!)));
 
         if (!agentAndModel.length) {
-          this.log('warn', '会话对应的模型配置不存在', {
+          this.log('warn', 'No model config found for session', {
             sessionId: params.sessionId,
           });
-          throw this.createNotFoundError(`会话对应的模型不存在: ${params.sessionId}`);
+          throw this.createNotFoundError(`Model not found for session: ${params.sessionId}`);
         }
 
         const { model, agent } = agentAndModel[0];
 
-        this.log('info', '从数据库获取会话模型配置成功', {
+        this.log('info', 'Session model config retrieved from database', {
           agentId: agent.id,
           modelId: model.id,
           providerId: model.providerId,
@@ -653,10 +653,10 @@ export class ChatService extends BaseService {
         });
 
         if (!agentToSession) {
-          throw this.createNotFoundError('会话对应的 agent 不存在');
+          throw this.createNotFoundError('Agent not found for session');
         }
 
-        this.log('info', '根据 sessionId 获取模型配置成功', {
+        this.log('info', 'Model config retrieved by sessionId', {
           sessionId: params.sessionId,
         });
 
@@ -668,11 +668,11 @@ export class ChatService extends BaseService {
         };
       }
     } catch (error) {
-      this.log('error', '获取模型配置失败', {
+      this.log('error', 'Failed to get model config', {
         error: error instanceof Error ? error.message : String(error),
         sessionId: params.sessionId,
       });
-      throw this.createCommonError('获取模型配置失败');
+      throw this.createCommonError('Failed to get model config');
     }
 
     // Return user-specified or default config
