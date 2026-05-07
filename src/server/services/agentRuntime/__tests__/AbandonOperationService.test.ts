@@ -49,6 +49,25 @@ describe('AbandonOperationService', () => {
     messageUpdateMock.mockClear();
   });
 
+  // Build a store whose `removePartial` actually clears the loadPartial mock,
+  // so a follow-up `loadPartial` (the post-finalize probe) returns null —
+  // matching real S3 store semantics.
+  const buildSmartStore = (initialPartial: any) => {
+    let current = initialPartial;
+    return {
+      get: vi.fn(),
+      getLatest: vi.fn(),
+      list: vi.fn(),
+      listPartials: vi.fn(),
+      loadPartial: vi.fn(async () => current),
+      removePartial: vi.fn(async () => {
+        current = null;
+      }),
+      save: vi.fn().mockResolvedValue(undefined),
+      savePartial: vi.fn().mockResolvedValue(undefined),
+    };
+  };
+
   it('returns found:false when coordinator has no state', async () => {
     const coord = buildCoordinator({ loadAgentState: vi.fn().mockResolvedValue(null) });
     const store = buildStore();
@@ -63,6 +82,7 @@ describe('AbandonOperationService', () => {
       assistantMessageUpdated: false,
       finalized: false,
       found: false,
+      retryable: false,
     });
     expect(store.save).not.toHaveBeenCalled();
     expect(messageUpdateMock).not.toHaveBeenCalled();
@@ -72,8 +92,7 @@ describe('AbandonOperationService', () => {
     const coord = buildCoordinator({
       loadAgentState: vi.fn().mockResolvedValue(stateWith()),
     });
-    const store = buildStore();
-    store.loadPartial.mockResolvedValue({
+    const store = buildSmartStore({
       model: 'deepseek-v4-pro',
       provider: 'lobehub',
       startedAt: 1_777_991_958_128,
@@ -92,6 +111,7 @@ describe('AbandonOperationService', () => {
 
     expect(result.found).toBe(true);
     expect(result.finalized).toBe(true);
+    expect(result.retryable).toBe(false);
     expect(result.assistantMessageUpdated).toBe(true);
 
     // Final snapshot saved
@@ -118,7 +138,7 @@ describe('AbandonOperationService', () => {
       }),
     });
 
-    // Coordinator state cleaned
+    // Coordinator state cleaned (only on successful persistence)
     expect(coord.deleteAgentOperation).toHaveBeenCalledWith('op_x');
   });
 
@@ -138,17 +158,19 @@ describe('AbandonOperationService', () => {
 
     expect(result.found).toBe(true);
     expect(result.finalized).toBe(false); // partial was missing
+    expect(result.retryable).toBe(false); // not transient — nothing to retry
     expect(result.assistantMessageUpdated).toBe(true);
     expect(store.save).not.toHaveBeenCalled();
     expect(messageUpdateMock).toHaveBeenCalled();
+    // No partial to recover, safe to clean Redis
+    expect(coord.deleteAgentOperation).toHaveBeenCalledWith('op_x');
   });
 
   it('synthesizes failedStep at index 0 when partial has zero steps', async () => {
     const coord = buildCoordinator({
       loadAgentState: vi.fn().mockResolvedValue(stateWith()),
     });
-    const store = buildStore();
-    store.loadPartial.mockResolvedValue({ steps: [], startedAt: 1 });
+    const store = buildSmartStore({ steps: [], startedAt: 1 });
 
     const svc = new AbandonOperationService({} as any, {
       coordinator: coord as any,
@@ -166,8 +188,7 @@ describe('AbandonOperationService', () => {
     const coord = buildCoordinator({
       loadAgentState: vi.fn().mockResolvedValue(stateWith({ metadata: { userId: 'user_x' } })),
     });
-    const store = buildStore();
-    store.loadPartial.mockResolvedValue({ steps: [{ stepIndex: 0 }], startedAt: 1 });
+    const store = buildSmartStore({ steps: [{ stepIndex: 0 }], startedAt: 1 });
 
     const svc = new AbandonOperationService({} as any, {
       coordinator: coord as any,
@@ -187,8 +208,7 @@ describe('AbandonOperationService', () => {
       loadAgentState: vi.fn().mockResolvedValue(stateWith()),
       deleteAgentOperation: vi.fn().mockRejectedValue(new Error('redis down')),
     });
-    const store = buildStore();
-    store.loadPartial.mockResolvedValue({ steps: [{ stepIndex: 0 }], startedAt: 1 });
+    const store = buildSmartStore({ steps: [{ stepIndex: 0 }], startedAt: 1 });
     messageUpdateMock.mockRejectedValueOnce(new Error('db down'));
 
     const svc = new AbandonOperationService({} as any, {
@@ -201,6 +221,101 @@ describe('AbandonOperationService', () => {
 
     expect(result.found).toBe(true);
     expect(result.finalized).toBe(true);
+    expect(result.retryable).toBe(false);
     expect(result.assistantMessageUpdated).toBe(false);
+  });
+
+  // ─── Retryable paths — the LOBE-8533 reviewer-flagged scenario ───
+
+  it('marks retryable + skips Redis cleanup when snapshot save throws (partial still present)', async () => {
+    const coord = buildCoordinator({
+      loadAgentState: vi.fn().mockResolvedValue(stateWith()),
+    });
+    // save throws → recorder catches → partial NOT removed → probe still sees it
+    const store = {
+      ...buildSmartStore({ steps: [{ stepIndex: 0 }], startedAt: 1 }),
+      save: vi.fn().mockRejectedValue(new Error('s3 down')),
+    } as any;
+
+    const svc = new AbandonOperationService({} as any, {
+      coordinator: coord as any,
+      snapshotStore: store,
+    });
+
+    const result = await svc.finalizeAbandoned('op_x', 'inactivity_5m');
+
+    expect(result.found).toBe(true);
+    expect(result.finalized).toBe(false);
+    expect(result.retryable).toBe(true);
+
+    // Assistant message still gets the error — independent of snapshot persistence
+    expect(result.assistantMessageUpdated).toBe(true);
+    expect(messageUpdateMock).toHaveBeenCalled();
+
+    // CRITICAL: Redis state preserved so a retry can re-attempt
+    expect(coord.deleteAgentOperation).not.toHaveBeenCalled();
+  });
+
+  it('marks retryable when removePartial throws (snapshot saved, partial leftover)', async () => {
+    const coord = buildCoordinator({
+      loadAgentState: vi.fn().mockResolvedValue(stateWith()),
+    });
+    // save succeeds, removePartial throws → partial still in store on probe
+    const current: any = { steps: [{ stepIndex: 0 }], startedAt: 1 };
+    const store = {
+      get: vi.fn(),
+      getLatest: vi.fn(),
+      list: vi.fn(),
+      listPartials: vi.fn(),
+      loadPartial: vi.fn(async () => current),
+      removePartial: vi.fn().mockRejectedValue(new Error('s3 delete down')),
+      save: vi.fn().mockResolvedValue(undefined),
+      savePartial: vi.fn().mockResolvedValue(undefined),
+    } as any;
+
+    const svc = new AbandonOperationService({} as any, {
+      coordinator: coord as any,
+      snapshotStore: store,
+    });
+
+    const result = await svc.finalizeAbandoned('op_x', 'inactivity_5m');
+
+    expect(result.retryable).toBe(true);
+    expect(result.finalized).toBe(false);
+    expect(coord.deleteAgentOperation).not.toHaveBeenCalled();
+    // Snapshot was actually saved (idempotent re-save on retry is fine)
+    expect(store.save).toHaveBeenCalled();
+  });
+
+  it('marks retryable when post-finalize probe throws (unknown state — conservative)', async () => {
+    const coord = buildCoordinator({
+      loadAgentState: vi.fn().mockResolvedValue(stateWith()),
+    });
+    let probeCount = 0;
+    const store = {
+      get: vi.fn(),
+      getLatest: vi.fn(),
+      list: vi.fn(),
+      listPartials: vi.fn(),
+      // First call (initial loadPartial) succeeds; second call (probe) throws.
+      loadPartial: vi.fn().mockImplementation(async () => {
+        probeCount++;
+        if (probeCount === 1) return { steps: [{ stepIndex: 0 }], startedAt: 1 };
+        throw new Error('s3 transient');
+      }),
+      removePartial: vi.fn().mockResolvedValue(undefined),
+      save: vi.fn().mockResolvedValue(undefined),
+      savePartial: vi.fn().mockResolvedValue(undefined),
+    } as any;
+
+    const svc = new AbandonOperationService({} as any, {
+      coordinator: coord as any,
+      snapshotStore: store,
+    });
+
+    const result = await svc.finalizeAbandoned('op_x', 'inactivity_5m');
+
+    expect(result.retryable).toBe(true);
+    expect(coord.deleteAgentOperation).not.toHaveBeenCalled();
   });
 });

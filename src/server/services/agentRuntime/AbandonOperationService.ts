@@ -21,10 +21,21 @@ interface AbandonOperationOptions {
 export interface FinalizeAbandonedResult {
   /** Whether the assistant message was successfully marked as errored. */
   assistantMessageUpdated: boolean;
-  /** Whether the operation was finalized into a snapshot (false if no partial existed). */
+  /**
+   * Whether the snapshot was successfully persisted to its canonical S3 path.
+   * False when no partial existed OR when persistence threw transiently — in
+   * the latter case, `retryable` is also true and Redis state is preserved.
+   */
   finalized: boolean;
   /** Whether agent state was found in Redis. */
   found: boolean;
+  /**
+   * True when snapshot persistence threw transiently (S3 save / removePartial
+   * failed). The caller should retry — Redis state is preserved so the next
+   * attempt has a chance to recover. Distinguishes transient failure from the
+   * benign "no partial existed" case (where `retryable` stays false).
+   */
+  retryable: boolean;
 }
 
 /**
@@ -39,6 +50,12 @@ export interface FinalizeAbandonedResult {
  * Idempotent: calling twice is a no-op the second time because `finalize()`
  * removes the partial, so `loadAgentState` may return null or finalize will
  * skip due to missing partial.
+ *
+ * Failure-aware: `OperationTraceRecorder.finalize()` swallows its own errors
+ * silently. We probe `loadPartial` after the call to detect whether the
+ * partial actually got removed (success path) vs. is still there (save or
+ * removePartial threw). On transient failure we set `retryable=true` and
+ * **skip Redis cleanup** so the retry has working state to recover from.
  */
 export class AbandonOperationService {
   private readonly coordinator: AgentRuntimeCoordinator;
@@ -60,6 +77,7 @@ export class AbandonOperationService {
       assistantMessageUpdated: false,
       finalized: false,
       found: false,
+      retryable: false,
     };
 
     const state = await this.coordinator.loadAgentState(operationId);
@@ -90,17 +108,31 @@ export class AbandonOperationService {
     // Mutate state for finalize — recorder reads cost / tokens / metadata off this.
     const finalState = { ...state, error, status: 'error' as const };
 
-    if (this.snapshotStore) {
+    if (this.snapshotStore && partial) {
       await this.traceRecorder.finalize(operationId, {
         completionReason: 'error',
         error: { message, type: String(error.type) },
         failedStep,
         state: finalState,
       });
-      // finalize swallows its own errors via try/catch, so we treat reaching
-      // this line as success. If the partial was missing we still mark the
-      // assistant message — that's the more important user-visible signal.
-      result.finalized = partial !== null;
+      // OperationTraceRecorder.finalize() catches save/removePartial errors
+      // silently and only logs. Probe the partial to detect actual outcome:
+      // - gone (null) ⇒ save + removePartial both succeeded
+      // - still present ⇒ save or removePartial threw
+      // - probe throws ⇒ unknown; conservatively treat as still present so
+      //   we preserve retry context rather than blow away Redis state.
+      const stillPresent = await this.snapshotStore
+        .loadPartial(operationId)
+        .catch(() => true as const);
+      if (stillPresent) {
+        result.retryable = true;
+        log(
+          '[%s] snapshot persistence failed — partial still present, will not clean Redis',
+          operationId,
+        );
+      } else {
+        result.finalized = true;
+      }
     }
 
     if (metadata.userId && metadata.assistantMessageId) {
@@ -113,10 +145,16 @@ export class AbandonOperationService {
       }
     }
 
-    try {
-      await this.coordinator.deleteAgentOperation(operationId);
-    } catch (e) {
-      log('[%s] coordinator cleanup failed (non-fatal): %O', operationId, e);
+    // Only clean Redis state when we're certain the snapshot is safely
+    // persisted (or there was nothing to persist). On transient finalize
+    // failure, leaving the operation state in Redis is what makes a retry
+    // possible — deleting it would orphan the `_partial/` snapshot forever.
+    if (!result.retryable) {
+      try {
+        await this.coordinator.deleteAgentOperation(operationId);
+      } catch (e) {
+        log('[%s] coordinator cleanup failed (non-fatal): %O', operationId, e);
+      }
     }
 
     log('[%s] abandoned op finalized (reason=%s): %O', operationId, reason, result);

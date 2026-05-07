@@ -35,7 +35,11 @@ export async function finalizeAbandoned(c: Context): Promise<Response> {
     const executionTime = Date.now() - startTime;
     log('[%s] finalize-abandoned done in %dms: %O', operationId, executionTime, result);
 
-    return c.json({ ...result, executionTime, operationId, reason });
+    // 503 when snapshot persistence failed transiently — the caller (gateway
+    // DO watchdog or future retry layer) should retry. Redis state is still
+    // intact server-side, so the retry has working context to recover from.
+    const status = result.retryable ? 503 : 200;
+    return c.json({ ...result, executionTime, operationId, reason }, status);
   } catch (error) {
     const executionTime = Date.now() - startTime;
     const message = error instanceof Error ? error.message : 'unknown error';
