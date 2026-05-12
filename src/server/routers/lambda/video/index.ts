@@ -60,6 +60,7 @@ const createVideoInputSchema = z.object({
       endImageUrl: z.string().nullable().optional(),
       generateAudio: z.boolean().optional(),
       imageUrl: z.string().nullable().optional(),
+      imageUrls: z.array(z.string()).optional(),
       prompt: z.string(),
       resolution: z.string().optional(),
       seed: z.number().nullable().optional(),
@@ -89,8 +90,15 @@ export const videoRouter = router({
 
     log('Starting video creation process, input: %O', input);
 
-    // Normalize image URLs to S3 keys for database storage
-    let configForDatabase = { ...params };
+    // ------------------------------------------------------------------
+    // Step A: Normalize reference image URLs to S3 keys for DB storage
+    //
+    // Clients post whatever URL they see locally (often a /f/{fileId}
+    // proxy URL). We convert these to stable storage keys before
+    // persisting so the DB never holds short-lived presigned URLs or
+    // host-specific proxy paths. Mirrors the image lambda router.
+    // ------------------------------------------------------------------
+    let configForDatabase: Record<string, unknown> = { ...params };
 
     // Process first-frame imageUrl
     if (typeof params.imageUrl === 'string' && params.imageUrl) {
@@ -102,6 +110,41 @@ export const videoRouter = router({
         }
       } catch (error) {
         console.error('Error converting imageUrl to key: %O', error);
+      }
+    }
+
+    // Process reference image array `imageUrls` (used by Seedance /
+    // Dreamina `reference_image` role and other multi-image video
+    // models). Previously this branch was missing entirely — the raw
+    // client URL was forwarded to providers like Volcengine, which then
+    // failed with `content[].image_url is not valid: timeout while
+    // fetching resource`. See #14652.
+    if (Array.isArray(params.imageUrls) && params.imageUrls.length > 0) {
+      log('Converting imageUrls to S3 keys for database storage: %O', params.imageUrls);
+      try {
+        const keys = await Promise.all(
+          params.imageUrls.map(async (url) => {
+            const key = await fileService.getKeyFromFullUrl(url);
+            if (!key) log('Failed to extract key from URL: %s', url);
+            return key;
+          }),
+        );
+        const normalized = keys.filter(
+          (key): key is string => typeof key === 'string' && key.length > 0,
+        );
+        if (normalized.length === params.imageUrls.length) {
+          configForDatabase = { ...configForDatabase, imageUrls: normalized };
+        } else {
+          // Partial failure — keep originals so we do not lose data,
+          // but log so the owner can investigate upload issues.
+          log(
+            'imageUrls key conversion partial failure (%d/%d), keeping original URLs',
+            normalized.length,
+            params.imageUrls.length,
+          );
+        }
+      } catch (error) {
+        console.error('Error converting imageUrls to keys: %O', error);
       }
     }
 
@@ -118,33 +161,62 @@ export const videoRouter = router({
       }
     }
 
-    // In development, convert localhost proxy URLs to S3 URLs for API access
-    let generationParams = params;
-    if (process.env.NODE_ENV === 'development') {
-      const updates: Record<string, unknown> = {};
+    // ------------------------------------------------------------------
+    // Step B: Resolve publicly-reachable URLs for the provider call
+    //
+    // Video providers (Volcengine / Seedance, Dreamina, etc.) fetch
+    // reference images over the public internet. The client-supplied URL
+    // may be a `/f/{fileId}` proxy URL that only works inside the user's
+    // private network — sending that to the provider yields a 400
+    // `timeout while fetching resource` error. We always rewrite to
+    // `fileService.getFullFileUrl(key)` which returns:
+    //   - `S3_PUBLIC_DOMAIN` + key when S3_SET_ACL + S3_PUBLIC_DOMAIN
+    //     are configured
+    //   - A cached presigned preview URL otherwise
+    // Both variants are reachable by the external provider. This used
+    // to run only in `NODE_ENV === 'development'`, which is why
+    // self-hosted production users hit #14652.
+    // ------------------------------------------------------------------
+    const generationParams: Record<string, unknown> = { ...params };
 
-      if (typeof params.imageUrl === 'string' && params.imageUrl) {
-        const s3Url = await fileService.getFullFileUrl(configForDatabase.imageUrl as string);
-        if (s3Url) {
-          log('Dev: converted imageUrl proxy URL to S3 URL: %s -> %s', params.imageUrl, s3Url);
-          updates.imageUrl = s3Url;
+    if (typeof params.imageUrl === 'string' && params.imageUrl) {
+      const key = (configForDatabase.imageUrl as string | undefined) ?? params.imageUrl;
+      try {
+        const publicUrl = await fileService.getFullFileUrl(key);
+        if (publicUrl) {
+          log('Resolved imageUrl for provider: %s -> %s', params.imageUrl, publicUrl);
+          generationParams.imageUrl = publicUrl;
         }
+      } catch (error) {
+        console.error('Failed to resolve public imageUrl: %O', error);
       }
+    }
 
-      if (typeof params.endImageUrl === 'string' && params.endImageUrl) {
-        const s3Url = await fileService.getFullFileUrl(configForDatabase.endImageUrl as string);
-        if (s3Url) {
-          log(
-            'Dev: converted endImageUrl proxy URL to S3 URL: %s -> %s',
-            params.endImageUrl,
-            s3Url,
-          );
-          updates.endImageUrl = s3Url;
+    if (Array.isArray(params.imageUrls) && params.imageUrls.length > 0) {
+      const keys =
+        Array.isArray(configForDatabase.imageUrls) && configForDatabase.imageUrls.length > 0
+          ? (configForDatabase.imageUrls as string[])
+          : params.imageUrls;
+      try {
+        const publicUrls = await Promise.all(keys.map((key) => fileService.getFullFileUrl(key)));
+        const resolved = publicUrls.map((url, i) => url || params.imageUrls![i]);
+        log('Resolved imageUrls for provider: %O', resolved);
+        generationParams.imageUrls = resolved;
+      } catch (error) {
+        console.error('Failed to resolve public imageUrls: %O', error);
+      }
+    }
+
+    if (typeof params.endImageUrl === 'string' && params.endImageUrl) {
+      const key = (configForDatabase.endImageUrl as string | undefined) ?? params.endImageUrl;
+      try {
+        const publicUrl = await fileService.getFullFileUrl(key);
+        if (publicUrl) {
+          log('Resolved endImageUrl for provider: %s -> %s', params.endImageUrl, publicUrl);
+          generationParams.endImageUrl = publicUrl;
         }
-      }
-
-      if (Object.keys(updates).length > 0) {
-        generationParams = { ...params, ...updates };
+      } catch (error) {
+        console.error('Failed to resolve public endImageUrl: %O', error);
       }
     }
 
