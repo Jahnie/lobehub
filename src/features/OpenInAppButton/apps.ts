@@ -1,0 +1,55 @@
+import type { OpenInAppId } from '@lobechat/electron-client-ipc';
+import { Cursor } from '@lobehub/icons';
+import { CodeIcon, FolderIcon, FolderOpenIcon, TerminalIcon } from 'lucide-react';
+import type { ComponentType, SVGAttributes } from 'react';
+
+// Renderer-side mapping from AppId → icon component. The displayName comes from
+// the main-process detectApps result (the source of truth), so we only map icons here.
+type IconLike =
+  | ComponentType<{ size?: number | string }>
+  | ComponentType<SVGAttributes<SVGElement>>;
+
+export const APP_ICONS: Record<OpenInAppId, IconLike> = {
+  cursor: Cursor as unknown as IconLike,
+  explorer: FolderIcon,
+  files: FolderOpenIcon,
+  finder: FolderIcon,
+  ghostty: TerminalIcon,
+  iterm2: TerminalIcon,
+  terminal: TerminalIcon,
+  vscode: CodeIcon,
+  webstorm: CodeIcon,
+  xcode: CodeIcon,
+  zed: CodeIcon,
+};
+
+// Platform fallback when no user pref or user's pref is uninstalled.
+export const PLATFORM_DEFAULT_APP: Record<NodeJS.Platform, OpenInAppId> = {
+  aix: 'files',
+  android: 'files',
+  cygwin: 'files',
+  darwin: 'finder',
+  freebsd: 'files',
+  haiku: 'files',
+  linux: 'files',
+  netbsd: 'files',
+  openbsd: 'files',
+  sunos: 'files',
+  win32: 'explorer',
+};
+
+export const resolveDefaultApp = (
+  userDefault: string | null | undefined,
+  installedIds: ReadonlySet<string>,
+  platform: NodeJS.Platform,
+): OpenInAppId => {
+  if (userDefault && installedIds.has(userDefault)) return userDefault as OpenInAppId;
+
+  const fallback = PLATFORM_DEFAULT_APP[platform] ?? 'finder';
+  if (installedIds.has(fallback)) return fallback;
+
+  // Last resort: first installed app, else the platform fallback (the main-process
+  // not-installed guard will surface a localized error toast if invoked).
+  const first = [...installedIds][0] as OpenInAppId | undefined;
+  return first ?? fallback;
+};
