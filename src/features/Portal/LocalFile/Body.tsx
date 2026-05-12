@@ -1,3 +1,4 @@
+import { buildLocalFileUrl, isDesktop } from '@lobechat/const';
 import { Center, Empty, Flexbox, Highlighter } from '@lobehub/ui';
 import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -41,13 +42,24 @@ const ActiveFileView = memo<ActiveFileViewProps>(({ filePath }) => {
   );
 
   if (isImage) {
+    // Chromium blocks `file://` from a non-file origin (Electron renderer,
+    // any web build) under default web security. The desktop main process
+    // registers `localfile://` as a privileged custom scheme that streams
+    // the bytes back with the correct MIME type. On web there's no equivalent
+    // — we surface a friendly empty state instead of a broken <img>.
+    const imageSrc = isDesktop ? buildLocalFileUrl(filePath) : null;
+
+    if (!imageSrc) {
+      return (
+        <Center height={'100%'} width={'100%'}>
+          <Empty description={t('workingPanel.localFile.binary')} />
+        </Center>
+      );
+    }
+
     return (
       <Center height={'100%'} style={{ overflow: 'auto' }} width={'100%'}>
-        <img
-          alt={filename}
-          src={`file://${filePath}`}
-          style={{ maxWidth: '100%', objectFit: 'contain' }}
-        />
+        <img alt={filename} src={imageSrc} style={{ maxWidth: '100%', objectFit: 'contain' }} />
       </Center>
     );
   }
