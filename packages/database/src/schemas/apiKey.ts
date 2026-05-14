@@ -21,10 +21,14 @@ export const apiKeys = pgTable(
     userId: text('user_id')
       .references(() => users.id, { onDelete: 'cascade' })
       .notNull(), // belongs to user, when user is deleted, the API key will be deleted
+    workspaceId: text('workspace_id'),
 
     ...timestamps,
   },
-  (t) => [index('api_keys_user_id_idx').on(t.userId)],
+  (t) => [
+    index('api_keys_user_id_idx').on(t.userId),
+    index('api_keys_workspace_id_idx').on(t.workspaceId),
+  ],
 );
 
 export const insertApiKeySchema = createInsertSchema(apiKeys);

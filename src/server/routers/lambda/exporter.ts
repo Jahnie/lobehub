@@ -12,10 +12,11 @@ import { type ExportDatabaseData } from '@/types/export';
 
 const exportProcedure = authedProcedure.use(serverDatabase).use(async (opts) => {
   const { ctx } = opts;
+  const wsId = ctx.workspaceId ?? undefined;
   const dataExporterRepos = new DataExporterRepos(ctx.serverDB, ctx.userId);
   const drizzleMigration = new DrizzleMigrationModel(ctx.serverDB);
-  const messageModel = new MessageModel(ctx.serverDB, ctx.userId);
-  const sessionModel = new SessionModel(ctx.serverDB, ctx.userId);
+  const messageModel = new MessageModel(ctx.serverDB, ctx.userId, wsId);
+  const sessionModel = new SessionModel(ctx.serverDB, ctx.userId, wsId);
 
   return opts.next({
     ctx: { dataExporterRepos, drizzleMigration, messageModel, sessionModel },

@@ -7,17 +7,19 @@ import {
 } from 'model-bank';
 import { z } from 'zod';
 
+import { wsCompatProcedure } from '@/business/server/trpc-middlewares/workspaceAuth';
 import { AiModelModel } from '@/database/models/aiModel';
 import { UserModel } from '@/database/models/user';
 import { AiInfraRepos } from '@/database/repositories/aiInfra';
-import { authedProcedure, router } from '@/libs/trpc/lambda';
+import { router } from '@/libs/trpc/lambda';
 import { serverDatabase } from '@/libs/trpc/lambda/middleware';
 import { getServerGlobalConfig } from '@/server/globalConfig';
 import { KeyVaultsGateKeeper } from '@/server/modules/KeyVaultsEncrypt';
 import { type ProviderConfig } from '@/types/user/settings';
 
-const aiModelProcedure = authedProcedure.use(serverDatabase).use(async (opts) => {
+const aiModelProcedure = wsCompatProcedure.use(serverDatabase).use(async (opts) => {
   const { ctx } = opts;
+  const wsId = ctx.workspaceId ?? undefined;
 
   const gateKeeper = await KeyVaultsGateKeeper.initWithEnvKey();
   const { aiProvider } = await getServerGlobalConfig();
@@ -29,7 +31,7 @@ const aiModelProcedure = authedProcedure.use(serverDatabase).use(async (opts) =>
         ctx.userId,
         aiProvider as Record<string, ProviderConfig>,
       ),
-      aiModelModel: new AiModelModel(ctx.serverDB, ctx.userId),
+      aiModelModel: new AiModelModel(ctx.serverDB, ctx.userId, wsId),
       gateKeeper,
       userModel: new UserModel(ctx.serverDB, ctx.userId),
     },

@@ -34,6 +34,7 @@ import {
 
 const userMemoryProcedure = authedProcedure.use(serverDatabase).use(async (opts) => {
   const { ctx } = opts;
+  const wsId = ctx.workspaceId ?? undefined;
 
   return opts.next({
     ctx: {
@@ -44,7 +45,7 @@ const userMemoryProcedure = authedProcedure.use(serverDatabase).use(async (opts)
       identityModel: new UserMemoryIdentityModel(ctx.serverDB, ctx.userId),
       personaModel: new UserPersonaModel(ctx.serverDB, ctx.userId),
       preferenceModel: new UserMemoryPreferenceModel(ctx.serverDB, ctx.userId),
-      topicModel: new TopicModel(ctx.serverDB, ctx.userId),
+      topicModel: new TopicModel(ctx.serverDB, ctx.userId, wsId),
       userMemoryModel: new UserMemoryModel(ctx.serverDB, ctx.userId),
     },
   });

@@ -5,22 +5,35 @@ import { chunk } from 'es-toolkit/compat';
 import type { NewChunkItem, NewUnstructuredChunkItem } from '../schemas';
 import { chunks, embeddings, fileChunks, files, unstructuredChunks } from '../schemas';
 import type { LobeChatDatabase } from '../type';
+import { buildWorkspacePayload, buildWorkspaceWhere } from '../utils/workspace';
 
 export class ChunkModel {
   private userId: string;
 
   private db: LobeChatDatabase;
+  private workspaceId?: string;
 
-  constructor(db: LobeChatDatabase, userId: string) {
+  constructor(db: LobeChatDatabase, userId: string, workspaceId?: string) {
     this.userId = userId;
     this.db = db;
+    this.workspaceId = workspaceId;
   }
+
+  private ownership = () =>
+    buildWorkspaceWhere({ userId: this.userId, workspaceId: this.workspaceId }, chunks);
 
   bulkCreate = async (params: NewChunkItem[], fileId: string) => {
     return this.db.transaction(async (trx) => {
       if (params.length === 0) return [];
 
-      const result = await trx.insert(chunks).values(params).returning();
+      const result = await trx
+        .insert(chunks)
+        .values(
+          params.map((p) =>
+            buildWorkspacePayload({ userId: this.userId, workspaceId: this.workspaceId }, p),
+          ),
+        )
+        .returning();
 
       const fileChunksData = result.map((chunk) => ({
         chunkId: chunk.id,
@@ -41,7 +54,7 @@ export class ChunkModel {
   };
 
   delete = async (id: string) => {
-    return this.db.delete(chunks).where(and(eq(chunks.id, id), eq(chunks.userId, this.userId)));
+    return this.db.delete(chunks).where(and(eq(chunks.id, id), this.ownership()));
   };
 
   deleteOrphanChunks = async () => {
@@ -85,7 +98,7 @@ export class ChunkModel {
       })
       .from(chunks)
       .innerJoin(fileChunks, eq(chunks.id, fileChunks.chunkId))
-      .where(and(eq(fileChunks.fileId, id), eq(chunks.userId, this.userId)))
+      .where(and(eq(fileChunks.fileId, id), this.ownership()))
       .limit(20)
       .offset(page * 20)
       .orderBy(asc(chunks.index));

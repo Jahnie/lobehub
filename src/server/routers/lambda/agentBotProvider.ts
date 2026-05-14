@@ -3,6 +3,7 @@ import { fetchQrCode, pollQrStatus } from '@lobechat/chat-adapter-wechat';
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 
+import { wsCompatProcedure } from '@/business/server/trpc-middlewares/workspaceAuth';
 import { AgentBotProviderModel } from '@/database/models/agentBotProvider';
 import { authedProcedure, router } from '@/libs/trpc/lambda';
 import { serverDatabase } from '@/libs/trpc/lambda/middleware';
@@ -17,13 +18,14 @@ import { mergeWithDefaults, platformRegistry } from '@/server/services/bot/platf
 import { GatewayService } from '@/server/services/gateway';
 import { getBotRuntimeStatus } from '@/server/services/gateway/runtimeStatus';
 
-const agentBotProviderProcedure = authedProcedure.use(serverDatabase).use(async (opts) => {
+const agentBotProviderProcedure = wsCompatProcedure.use(serverDatabase).use(async (opts) => {
   const { ctx } = opts;
+  const wsId = ctx.workspaceId ?? undefined;
   const gateKeeper = await KeyVaultsGateKeeper.initWithEnvKey();
 
   return opts.next({
     ctx: {
-      agentBotProviderModel: new AgentBotProviderModel(ctx.serverDB, ctx.userId, gateKeeper),
+      agentBotProviderModel: new AgentBotProviderModel(ctx.serverDB, ctx.userId, gateKeeper, wsId),
     },
   });
 });

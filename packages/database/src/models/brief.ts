@@ -4,6 +4,7 @@ import { agents } from '../schemas/agent';
 import type { BriefItem, NewBrief } from '../schemas/task';
 import { briefs, tasks } from '../schemas/task';
 import type { LobeChatDatabase } from '../type';
+import { buildWorkspacePayload, buildWorkspaceWhere } from '../utils/workspace';
 
 export interface UnresolvedBriefRow {
   agentAvatar: string | null;
@@ -17,16 +18,23 @@ export interface UnresolvedBriefRow {
 export class BriefModel {
   private readonly userId: string;
   private readonly db: LobeChatDatabase;
+  private readonly workspaceId?: string;
 
-  constructor(db: LobeChatDatabase, userId: string) {
+  constructor(db: LobeChatDatabase, userId: string, workspaceId?: string) {
     this.db = db;
     this.userId = userId;
+    this.workspaceId = workspaceId;
   }
+
+  private ownership = () =>
+    buildWorkspaceWhere({ userId: this.userId, workspaceId: this.workspaceId }, briefs);
 
   async create(data: Omit<NewBrief, 'id' | 'userId'>): Promise<BriefItem> {
     const result = await this.db
       .insert(briefs)
-      .values({ ...data, userId: this.userId })
+      .values(
+        buildWorkspacePayload({ userId: this.userId, workspaceId: this.workspaceId }, { ...data }),
+      )
       .returning();
 
     return result[0];
@@ -36,7 +44,7 @@ export class BriefModel {
     const result = await this.db
       .select()
       .from(briefs)
-      .where(and(eq(briefs.id, id), eq(briefs.userId, this.userId)))
+      .where(and(eq(briefs.id, id), this.ownership()))
       .limit(1);
 
     return result[0] || null;
@@ -49,7 +57,7 @@ export class BriefModel {
   }): Promise<{ briefs: BriefItem[]; total: number }> {
     const { type, limit = 50, offset = 0 } = options || {};
 
-    const conditions = [eq(briefs.userId, this.userId)];
+    const conditions = [this.ownership()];
     if (type) conditions.push(eq(briefs.type, type));
 
     const where = and(...conditions);
@@ -90,7 +98,7 @@ export class BriefModel {
       .from(briefs)
       .leftJoin(agents, eq(briefs.agentId, agents.id))
       .leftJoin(tasks, eq(briefs.taskId, tasks.id))
-      .where(and(eq(briefs.userId, this.userId), isNull(briefs.resolvedAt)))
+      .where(and(this.ownership(), isNull(briefs.resolvedAt)))
       .orderBy(
         sql`CASE
           WHEN ${briefs.priority} = 'urgent' THEN 0
@@ -144,7 +152,7 @@ export class BriefModel {
     return this.db
       .select()
       .from(briefs)
-      .where(and(eq(briefs.taskId, taskId), eq(briefs.userId, this.userId)))
+      .where(and(eq(briefs.taskId, taskId), this.ownership()))
       .orderBy(desc(briefs.createdAt));
   }
 
@@ -180,7 +188,7 @@ export class BriefModel {
     return this.db
       .select()
       .from(briefs)
-      .where(and(eq(briefs.cronJobId, cronJobId), eq(briefs.userId, this.userId)))
+      .where(and(eq(briefs.cronJobId, cronJobId), this.ownership()))
       .orderBy(desc(briefs.createdAt));
   }
 
@@ -188,7 +196,7 @@ export class BriefModel {
     const result = await this.db
       .update(briefs)
       .set({ readAt: new Date() })
-      .where(and(eq(briefs.id, id), eq(briefs.userId, this.userId)))
+      .where(and(eq(briefs.id, id), this.ownership()))
       .returning();
 
     return result[0] || null;
@@ -206,7 +214,7 @@ export class BriefModel {
         resolvedAt: new Date(),
         resolvedComment: options?.comment,
       })
-      .where(and(eq(briefs.id, id), eq(briefs.userId, this.userId)))
+      .where(and(eq(briefs.id, id), this.ownership()))
       .returning();
 
     return result[0] || null;
@@ -238,7 +246,7 @@ export class BriefModel {
   async delete(id: string): Promise<boolean> {
     const result = await this.db
       .delete(briefs)
-      .where(and(eq(briefs.id, id), eq(briefs.userId, this.userId)))
+      .where(and(eq(briefs.id, id), this.ownership()))
       .returning();
 
     return result.length > 0;

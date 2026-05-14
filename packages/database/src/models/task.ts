@@ -14,15 +14,28 @@ import { documents } from '../schemas/file';
 import type { NewTaskComment, TaskCommentItem } from '../schemas/task';
 import { taskComments, taskDependencies, taskDocuments, tasks } from '../schemas/task';
 import type { LobeChatDatabase } from '../type';
+import { buildWorkspaceWhere } from '../utils/workspace';
 
 export class TaskModel {
   private readonly userId: string;
   private readonly db: LobeChatDatabase;
+  private readonly workspaceId?: string;
 
-  constructor(db: LobeChatDatabase, userId: string) {
+  constructor(db: LobeChatDatabase, userId: string, workspaceId?: string) {
     this.db = db;
     this.userId = userId;
+    this.workspaceId = workspaceId;
   }
+
+  /**
+   * Compat-mode ownership predicate for the `tasks` table.
+   * `tasks` uses `createdByUserId` instead of `userId`.
+   */
+  private ownership = () =>
+    buildWorkspaceWhere(
+      { userId: this.userId, workspaceId: this.workspaceId },
+      { userId: tasks.createdByUserId, workspaceId: tasks.workspaceId },
+    );
 
   // ========== CRUD ==========
 

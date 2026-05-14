@@ -9,10 +9,11 @@ import { NotebookRuntimeService } from '@/server/services/notebook';
 
 const notebookProcedure = authedProcedure.use(serverDatabase).use(async (opts) => {
   const { ctx } = opts;
+  const wsId = ctx.workspaceId ?? undefined;
 
   return opts.next({
     ctx: {
-      documentModel: new DocumentModel(ctx.serverDB, ctx.userId),
+      documentModel: new DocumentModel(ctx.serverDB, ctx.userId, wsId),
       notebookService: new NotebookRuntimeService({ serverDB: ctx.serverDB, userId: ctx.userId }),
       topicDocumentModel: new TopicDocumentModel(ctx.serverDB, ctx.userId),
     },

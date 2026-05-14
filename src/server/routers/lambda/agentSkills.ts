@@ -55,11 +55,12 @@ const handleSkillImportError = (error: unknown): never => {
 
 const skillProcedure = authedProcedure.use(serverDatabase).use(async (opts) => {
   const { ctx } = opts;
+  const wsId = ctx.workspaceId ?? undefined;
   const skillModel = new AgentSkillModel(ctx.serverDB, ctx.userId);
 
   return opts.next({
     ctx: {
-      fileModel: new FileModel(ctx.serverDB, ctx.userId),
+      fileModel: new FileModel(ctx.serverDB, ctx.userId, wsId),
       fileService: new FileService(ctx.serverDB, ctx.userId),
       marketService: new MarketService({ userInfo: { userId: ctx.userId } }),
       skillImporter: new SkillImporter(ctx.serverDB, ctx.userId),

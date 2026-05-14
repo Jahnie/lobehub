@@ -1,24 +1,26 @@
 import { z } from 'zod';
 
+import { wsCompatProcedure } from '@/business/server/trpc-middlewares/workspaceAuth';
 import { ChatGroupModel } from '@/database/models/chatGroup';
 import { SessionModel } from '@/database/models/session';
 import { SessionGroupModel } from '@/database/models/sessionGroup';
 import { insertAgentSchema, insertSessionSchema } from '@/database/schemas';
 import { getServerDB } from '@/database/server';
-import { authedProcedure, publicProcedure, router } from '@/libs/trpc/lambda';
+import { publicProcedure, router } from '@/libs/trpc/lambda';
 import { serverDatabase } from '@/libs/trpc/lambda/middleware';
 import { AgentChatConfigSchema } from '@/types/agent';
 import { LobeMetaDataSchema } from '@/types/meta';
 import { type BatchTaskResult } from '@/types/service';
 import { type ChatSessionList, type LobeGroupSession } from '@/types/session';
 
-const sessionProcedure = authedProcedure.use(serverDatabase).use(async (opts) => {
+const sessionProcedure = wsCompatProcedure.use(serverDatabase).use(async (opts) => {
   const { ctx } = opts;
+  const wsId = ctx.workspaceId ?? undefined;
 
   return opts.next({
     ctx: {
-      sessionGroupModel: new SessionGroupModel(ctx.serverDB, ctx.userId),
-      sessionModel: new SessionModel(ctx.serverDB, ctx.userId),
+      sessionGroupModel: new SessionGroupModel(ctx.serverDB, ctx.userId, wsId),
+      sessionModel: new SessionModel(ctx.serverDB, ctx.userId, wsId),
     },
   });
 });
@@ -109,7 +111,8 @@ export const sessionRouter = router({
     if (!userId) return { sessionGroups: [], sessions: [] };
 
     const serverDB = await getServerDB();
-    const sessionModel = new SessionModel(serverDB, userId);
+    const wsId = ctx.workspaceId ?? undefined;
+    const sessionModel = new SessionModel(serverDB, userId, wsId);
     const chatGroupModel = new ChatGroupModel(serverDB, userId);
 
     const [{ sessions, sessionGroups }, chatGroups] = await Promise.all([
@@ -147,9 +150,11 @@ export const sessionRouter = router({
       return ctx.sessionModel.query({ current, pageSize });
     }),
 
-  rankSessions: sessionProcedure.input(z.number().max(50).optional()).query(async ({ ctx, input }) => {
-    return ctx.sessionModel.rank(input);
-  }),
+  rankSessions: sessionProcedure
+    .input(z.number().max(50).optional())
+    .query(async ({ ctx, input }) => {
+      return ctx.sessionModel.rank(input);
+    }),
 
   removeAllSessions: sessionProcedure.mutation(async ({ ctx }) => {
     return ctx.sessionModel.deleteAll();

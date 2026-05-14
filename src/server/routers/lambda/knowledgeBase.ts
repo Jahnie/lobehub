@@ -1,20 +1,22 @@
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 
+import { wsCompatProcedure } from '@/business/server/trpc-middlewares/workspaceAuth';
 import { serverDBEnv } from '@/config/db';
 import { KnowledgeBaseModel } from '@/database/models/knowledgeBase';
 import { insertKnowledgeBasesSchema } from '@/database/schemas';
-import { authedProcedure, router } from '@/libs/trpc/lambda';
+import { router } from '@/libs/trpc/lambda';
 import { serverDatabase } from '@/libs/trpc/lambda/middleware';
 import { FileService } from '@/server/services/file';
 import { type KnowledgeBaseItem } from '@/types/knowledgeBase';
 
-const knowledgeBaseProcedure = authedProcedure.use(serverDatabase).use(async (opts) => {
+const knowledgeBaseProcedure = wsCompatProcedure.use(serverDatabase).use(async (opts) => {
   const { ctx } = opts;
+  const wsId = ctx.workspaceId ?? undefined;
 
   return opts.next({
     ctx: {
-      knowledgeBaseModel: new KnowledgeBaseModel(ctx.serverDB, ctx.userId),
+      knowledgeBaseModel: new KnowledgeBaseModel(ctx.serverDB, ctx.userId, wsId),
     },
   });
 });

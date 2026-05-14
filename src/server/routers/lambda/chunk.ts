@@ -3,6 +3,7 @@ import { RequestTrigger, SemanticSearchSchema } from '@lobechat/types';
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 
+import { wsCompatProcedure } from '@/business/server/trpc-middlewares/workspaceAuth';
 import { AsyncTaskModel } from '@/database/models/asyncTask';
 import { ChunkModel } from '@/database/models/chunk';
 import { DocumentModel } from '@/database/models/document';
@@ -10,7 +11,7 @@ import { EmbeddingModel } from '@/database/models/embedding';
 import { FileModel } from '@/database/models/file';
 import { MessageModel } from '@/database/models/message';
 import { SearchRepo } from '@/database/repositories/search';
-import { authedProcedure, router } from '@/libs/trpc/lambda';
+import { router } from '@/libs/trpc/lambda';
 import { serverDatabase } from '@/libs/trpc/lambda/middleware';
 import { getServerDefaultFilesConfig } from '@/server/globalConfig';
 import { initModelRuntimeFromDB } from '@/server/modules/ModelRuntime';
@@ -18,20 +19,21 @@ import { ChunkService } from '@/server/services/chunk';
 import { DocumentService } from '@/server/services/document';
 import { KnowledgeBaseSearchService } from '@/server/services/knowledgeBase';
 
-const chunkProcedure = authedProcedure.use(serverDatabase).use(async (opts) => {
+const chunkProcedure = wsCompatProcedure.use(serverDatabase).use(async (opts) => {
   const { ctx } = opts;
+  const wsId = ctx.workspaceId ?? undefined;
 
   return opts.next({
     ctx: {
-      asyncTaskModel: new AsyncTaskModel(ctx.serverDB, ctx.userId),
-      chunkModel: new ChunkModel(ctx.serverDB, ctx.userId),
+      asyncTaskModel: new AsyncTaskModel(ctx.serverDB, ctx.userId, wsId),
+      chunkModel: new ChunkModel(ctx.serverDB, ctx.userId, wsId),
       chunkService: new ChunkService(ctx.serverDB, ctx.userId),
-      documentModel: new DocumentModel(ctx.serverDB, ctx.userId),
+      documentModel: new DocumentModel(ctx.serverDB, ctx.userId, wsId),
       documentService: new DocumentService(ctx.serverDB, ctx.userId),
       embeddingModel: new EmbeddingModel(ctx.serverDB, ctx.userId),
-      fileModel: new FileModel(ctx.serverDB, ctx.userId),
+      fileModel: new FileModel(ctx.serverDB, ctx.userId, wsId),
       knowledgeBaseSearchService: new KnowledgeBaseSearchService(ctx.serverDB, ctx.userId),
-      messageModel: new MessageModel(ctx.serverDB, ctx.userId),
+      messageModel: new MessageModel(ctx.serverDB, ctx.userId, wsId),
       searchRepo: new SearchRepo(ctx.serverDB, ctx.userId),
     },
   });

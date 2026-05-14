@@ -67,6 +67,7 @@ import type { LobeChatDatabase, Transaction } from '../type';
 import { sanitizeBm25Query } from '../utils/bm25';
 import { genEndDateWhere, genRangeWhere, genStartDateWhere, genWhere } from '../utils/genWhere';
 import { idGenerator } from '../utils/idGenerator';
+import { buildWorkspacePayload, buildWorkspaceWhere } from '../utils/workspace';
 
 /**
  * Options for querying messages with relations
@@ -97,11 +98,16 @@ export interface QueryMessagesOptions {
 export class MessageModel {
   private userId: string;
   private db: LobeChatDatabase;
+  private workspaceId?: string;
 
-  constructor(db: LobeChatDatabase, userId: string) {
+  constructor(db: LobeChatDatabase, userId: string, workspaceId?: string) {
     this.userId = userId;
     this.db = db;
+    this.workspaceId = workspaceId;
   }
+
+  private ownership = () =>
+    buildWorkspaceWhere({ userId: this.userId, workspaceId: this.workspaceId }, messages);
 
   /**
    * Touch topics' updatedAt timestamp within a transaction
@@ -266,7 +272,7 @@ export class MessageModel {
       .from(messages)
       .where(
         and(
-          eq(messages.userId, this.userId),
+          this.ownership(),
           // Filter out messages that belong to MessageGroups
           isNull(messages.messageGroupId),
           where,
@@ -604,7 +610,7 @@ export class MessageModel {
         ttsVoice: messageTTS.voice,
       })
       .from(messages)
-      .where(and(eq(messages.userId, this.userId), inArray(messages.id, messageIds)))
+      .where(and(this.ownership(), inArray(messages.id, messageIds)))
       .leftJoin(messagePlugins, eq(messagePlugins.id, messages.id))
       .leftJoin(messageTranslates, eq(messageTranslates.id, messages.id))
       .leftJoin(messageTTS, eq(messageTTS.id, messages.id))
@@ -837,7 +843,7 @@ export class MessageModel {
         messageGroupId: messages.messageGroupId,
       })
       .from(messages)
-      .where(and(eq(messages.userId, this.userId), inArray(messages.messageGroupId, groupIds)))
+      .where(and(this.ownership(), inArray(messages.messageGroupId, groupIds)))
       .orderBy(asc(messages.createdAt));
 
     // 3. Query full message data using queryByIds (reuses all transformation logic)
@@ -975,7 +981,7 @@ export class MessageModel {
 
   findById = async (id: string) => {
     return this.db.query.messages.findFirst({
-      where: and(eq(messages.id, id), eq(messages.userId, this.userId)),
+      where: and(eq(messages.id, id), this.ownership()),
     });
   };
 
@@ -1006,7 +1012,7 @@ export class MessageModel {
     // For Standalone type, only return the source message
     if (threadType === ThreadType.Standalone) {
       const sourceMessage = await this.db.query.messages.findFirst({
-        where: and(eq(messages.id, sourceMessageId), eq(messages.userId, this.userId)),
+        where: and(eq(messages.id, sourceMessageId), this.ownership()),
       });
 
       return sourceMessage ? [sourceMessage as DBMessageItem] : [];
@@ -1014,7 +1020,7 @@ export class MessageModel {
 
     // For Continuation type, get the source message first to know its createdAt
     const sourceMessage = await this.db.query.messages.findFirst({
-      where: and(eq(messages.id, sourceMessageId), eq(messages.userId, this.userId)),
+      where: and(eq(messages.id, sourceMessageId), this.ownership()),
     });
 
     if (!sourceMessage) return [];
@@ -1027,7 +1033,7 @@ export class MessageModel {
       .from(messages)
       .where(
         and(
-          eq(messages.userId, this.userId),
+          this.ownership(),
           eq(messages.topicId, topicId),
           isNull(messages.threadId), // Only main conversation messages (not in any thread)
           or(
@@ -1066,7 +1072,7 @@ export class MessageModel {
     const result = await this.db
       .select()
       .from(messages)
-      .where(eq(messages.userId, this.userId))
+      .where(and(this.ownership()))
       .orderBy(desc(messages.createdAt))
       .limit(pageSize)
       .offset(offset);
@@ -1077,7 +1083,7 @@ export class MessageModel {
   queryBySessionId = async (sessionId?: string | null) => {
     const result = await this.db.query.messages.findMany({
       orderBy: [asc(messages.createdAt)],
-      where: and(eq(messages.userId, this.userId), this.matchSession(sessionId)),
+      where: and(this.ownership(), this.matchSession(sessionId)),
     });
 
     return result as DBMessageItem[];
@@ -1090,7 +1096,7 @@ export class MessageModel {
     const result = await this.db
       .select()
       .from(messages)
-      .where(and(eq(messages.userId, this.userId), sql`${messages.content} @@@ ${bm25Query}`))
+      .where(and(this.ownership(), sql`${messages.content} @@@ ${bm25Query}`))
       .orderBy(desc(messages.createdAt));
 
     return result as DBMessageItem[];
@@ -1108,7 +1114,7 @@ export class MessageModel {
       .from(messages)
       .where(
         genWhere([
-          eq(messages.userId, this.userId),
+          this.ownership(),
           params?.range
             ? genRangeWhere(params.range, messages.createdAt, (date) => date.toDate())
             : undefined,
@@ -1136,7 +1142,7 @@ export class MessageModel {
       .from(messages)
       .where(
         genWhere([
-          eq(messages.userId, this.userId),
+          this.ownership(),
           params?.range
             ? genRangeWhere(params.range, messages.createdAt, (date) => date.toDate())
             : undefined,
@@ -1159,7 +1165,7 @@ export class MessageModel {
         id: messages.model,
       })
       .from(messages)
-      .where(and(eq(messages.userId, this.userId), isNotNull(messages.model)))
+      .where(and(this.ownership(), isNotNull(messages.model)))
       .having(({ count }) => gt(count, 0))
       .groupBy(messages.model)
       .orderBy(desc(sql`count`), asc(messages.model))
@@ -1178,7 +1184,7 @@ export class MessageModel {
       .from(messages)
       .where(
         genWhere([
-          eq(messages.userId, this.userId),
+          this.ownership(),
           genRangeWhere(
             [startDate.format('YYYY-MM-DD'), endDate.add(1, 'day').format('YYYY-MM-DD')],
             messages.createdAt,
@@ -1223,7 +1229,7 @@ export class MessageModel {
     const result = await this.db
       .select({ id: messages.id })
       .from(messages)
-      .where(eq(messages.userId, this.userId))
+      .where(and(this.ownership()))
       .limit(n + 1);
 
     return result.length > n;
@@ -1236,7 +1242,7 @@ export class MessageModel {
     const result = await this.db
       .select({ id: messages.id })
       .from(messages)
-      .where(eq(messages.userId, this.userId))
+      .where(and(this.ownership()))
       .limit(n);
 
     return result.length;
@@ -1266,18 +1272,22 @@ export class MessageModel {
 
       const [item] = (await trx
         .insert(messages)
-        .values({
-          ...normalizedMessage,
-          // Sanitize content to strip null bytes that PostgreSQL rejects
-          content: sanitizeNullBytes(normalizedMessage.content),
-          // TODO: remove this when the client is updated
-          createdAt: createdAt ? new Date(createdAt) : undefined,
-          id,
-          model: fromModel,
-          provider: fromProvider,
-          updatedAt: updatedAt ? new Date(updatedAt) : undefined,
-          userId: this.userId,
-        })
+        .values(
+          buildWorkspacePayload(
+            { userId: this.userId, workspaceId: this.workspaceId },
+            {
+              ...normalizedMessage,
+              // Sanitize content to strip null bytes that PostgreSQL rejects
+              content: sanitizeNullBytes(normalizedMessage.content),
+              // TODO: remove this when the client is updated
+              createdAt: createdAt ? new Date(createdAt) : undefined,
+              id,
+              model: fromModel,
+              provider: fromProvider,
+              updatedAt: updatedAt ? new Date(updatedAt) : undefined,
+            },
+          ),
+        )
         .returning()) as DBMessageItem[];
 
       // Insert the plugin data if the message is a tool
@@ -1323,10 +1333,13 @@ export class MessageModel {
   };
 
   batchCreate = async (newMessages: DBMessageItem[]) => {
-    const messagesToInsert = newMessages.map((m) => {
-      // TODO: need a better way to handle this
-      return { ...m, role: m.role as any, userId: this.userId };
-    });
+    const messagesToInsert = newMessages.map((m) =>
+      buildWorkspacePayload(
+        { userId: this.userId, workspaceId: this.workspaceId },
+        // TODO: need a better way to handle this
+        { ...m, role: m.role as any },
+      ),
+    );
 
     const topicIds = [...new Set(newMessages.map((m) => m.topicId).filter(Boolean))] as string[];
 
@@ -1703,7 +1716,7 @@ export class MessageModel {
       const message = await tx
         .select()
         .from(messages)
-        .where(and(eq(messages.id, id), eq(messages.userId, this.userId)))
+        .where(and(eq(messages.id, id), this.ownership()))
         .limit(1);
 
       // If the message to be deleted is not found, return directly
@@ -1739,7 +1752,7 @@ export class MessageModel {
       // 6. Delete all related messages
       await tx
         .delete(messages)
-        .where(and(eq(messages.userId, this.userId), inArray(messages.id, messageIdsToDelete)));
+        .where(and(this.ownership(), inArray(messages.id, messageIdsToDelete)));
     });
   };
 
@@ -1751,7 +1764,7 @@ export class MessageModel {
       const toDelete = await tx
         .select({ id: messages.id, parentId: messages.parentId })
         .from(messages)
-        .where(and(eq(messages.userId, this.userId), inArray(messages.id, ids)));
+        .where(and(this.ownership(), inArray(messages.id, ids)));
 
       if (toDelete.length === 0) return;
 
@@ -1810,9 +1823,7 @@ export class MessageModel {
       }
 
       // 6. Delete the messages
-      await tx
-        .delete(messages)
-        .where(and(eq(messages.userId, this.userId), inArray(messages.id, ids)));
+      await tx.delete(messages).where(and(this.ownership(), inArray(messages.id, ids)));
     });
   };
 
@@ -1862,7 +1873,7 @@ export class MessageModel {
       .delete(messages)
       .where(
         and(
-          eq(messages.userId, this.userId),
+          this.ownership(),
           this.matchSession(sessionId),
           this.matchTopic(topicId),
           this.matchGroup(groupId),
@@ -1870,7 +1881,7 @@ export class MessageModel {
       );
 
   deleteAllMessages = async () => {
-    return this.db.delete(messages).where(eq(messages.userId, this.userId));
+    return this.db.delete(messages).where(and(this.ownership()));
   };
 
   /**
@@ -1894,7 +1905,7 @@ export class MessageModel {
       ? or(eq(messages.agentId, agentId), eq(messages.sessionId, associatedSessionId))
       : eq(messages.agentId, agentId);
 
-    return this.db.delete(messages).where(and(eq(messages.userId, this.userId), agentCondition));
+    return this.db.delete(messages).where(and(this.ownership(), agentCondition));
   };
 
   // **************** Helper *************** //

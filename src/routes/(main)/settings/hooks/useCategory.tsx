@@ -5,6 +5,7 @@ import {
   BellIcon,
   Brain,
   BrainCircuit,
+  Building2,
   ChartColumnBigIcon,
   Coins,
   CreditCard,
@@ -21,6 +22,7 @@ import {
   PaletteIcon,
   Sparkles,
   TerminalSquare,
+  Users,
 } from 'lucide-react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -40,8 +42,8 @@ import { userGeneralSettingsSelectors } from '@/store/user/slices/settings/selec
 export enum SettingsGroupKey {
   Agent = 'agent',
   General = 'general',
-  Subscription = 'subscription',
   System = 'system',
+  Workspace = 'workspace',
 }
 
 export interface CategoryItem {
@@ -115,9 +117,22 @@ export const useCategory = () => {
       title: t('group.common'),
     });
 
-    // Subscription group
+    // Workspace group — workspace management (general / members) on top,
+    // followed by the subscription / billing items (Plans, Usage, Credits,
+    // Billing, Referral), which are also workspace-scoped for team workspaces
+    // and user-scoped for personal.
     if (enableBusinessFeatures) {
-      const subscriptionItems: CategoryItem[] = [
+      const workspaceItems: CategoryItem[] = [
+        {
+          icon: Building2,
+          key: SettingsTabs.WorkspaceGeneral,
+          label: t('tab.workspaceGeneral'),
+        },
+        {
+          icon: Users,
+          key: SettingsTabs.WorkspaceMembers,
+          label: t('tab.workspaceMembers'),
+        },
         { icon: Map, key: SettingsTabs.Plans, label: tSubscription('tab.plans') },
         { icon: ChartColumnBigIcon, key: SettingsTabs.Usage, label: t('tab.usage') },
         { icon: Coins, key: SettingsTabs.Credits, label: tSubscription('tab.credits') },
@@ -126,9 +141,9 @@ export const useCategory = () => {
       ];
 
       groups.push({
-        items: subscriptionItems,
-        key: SettingsGroupKey.Subscription,
-        title: t('group.subscription'),
+        items: workspaceItems,
+        key: SettingsGroupKey.Workspace,
+        title: t('group.workspace'),
       });
     }
 

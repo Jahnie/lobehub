@@ -1,17 +1,19 @@
 import { z } from 'zod';
 
+import { wsCompatProcedure } from '@/business/server/trpc-middlewares/workspaceAuth';
 import { SessionGroupModel } from '@/database/models/sessionGroup';
 import { insertSessionGroupSchema } from '@/database/schemas';
-import { authedProcedure, router } from '@/libs/trpc/lambda';
+import { router } from '@/libs/trpc/lambda';
 import { serverDatabase } from '@/libs/trpc/lambda/middleware';
 import { type SessionGroupItem } from '@/types/session';
 
-const sessionProcedure = authedProcedure.use(serverDatabase).use(async (opts) => {
+const sessionProcedure = wsCompatProcedure.use(serverDatabase).use(async (opts) => {
   const { ctx } = opts;
+  const wsId = ctx.workspaceId ?? undefined;
 
   return opts.next({
     ctx: {
-      sessionGroupModel: new SessionGroupModel(ctx.serverDB, ctx.userId),
+      sessionGroupModel: new SessionGroupModel(ctx.serverDB, ctx.userId, wsId),
     },
   });
 });

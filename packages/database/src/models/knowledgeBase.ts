@@ -4,23 +4,34 @@ import { and, count, desc, eq, inArray } from 'drizzle-orm';
 import type { NewKnowledgeBase } from '../schemas';
 import { documents, knowledgeBaseFiles, knowledgeBases } from '../schemas';
 import type { LobeChatDatabase } from '../type';
+import { buildWorkspacePayload, buildWorkspaceWhere } from '../utils/workspace';
 import { FileModel } from './file';
 
 export class KnowledgeBaseModel {
   private userId: string;
   private db: LobeChatDatabase;
+  private workspaceId?: string;
 
-  constructor(db: LobeChatDatabase, userId: string) {
+  constructor(db: LobeChatDatabase, userId: string, workspaceId?: string) {
     this.userId = userId;
     this.db = db;
+    this.workspaceId = workspaceId;
   }
+
+  private ownership = () =>
+    buildWorkspaceWhere({ userId: this.userId, workspaceId: this.workspaceId }, knowledgeBases);
 
   // create
 
   create = async (params: Omit<NewKnowledgeBase, 'userId'>) => {
     const [result] = await this.db
       .insert(knowledgeBases)
-      .values({ ...params, userId: this.userId })
+      .values(
+        buildWorkspacePayload(
+          { userId: this.userId, workspaceId: this.workspaceId },
+          { ...params },
+        ),
+      )
       .returning();
 
     return result;
@@ -29,7 +40,7 @@ export class KnowledgeBaseModel {
   addFilesToKnowledgeBase = async (id: string, fileIds: string[]) => {
     // Verify the target knowledge base belongs to the current user
     const kb = await this.db.query.knowledgeBases.findFirst({
-      where: and(eq(knowledgeBases.id, id), eq(knowledgeBases.userId, this.userId)),
+      where: and(eq(knowledgeBases.id, id), this.ownership()),
     });
     if (!kb) return [];
 
@@ -72,13 +83,11 @@ export class KnowledgeBaseModel {
 
   // delete
   delete = async (id: string) => {
-    return this.db
-      .delete(knowledgeBases)
-      .where(and(eq(knowledgeBases.id, id), eq(knowledgeBases.userId, this.userId)));
+    return this.db.delete(knowledgeBases).where(and(eq(knowledgeBases.id, id), this.ownership()));
   };
 
   deleteAll = async () => {
-    return this.db.delete(knowledgeBases).where(eq(knowledgeBases.userId, this.userId));
+    return this.db.delete(knowledgeBases).where(this.ownership());
   };
 
   removeFilesFromKnowledgeBase = async (knowledgeBaseId: string, ids: string[]) => {
@@ -142,7 +151,7 @@ export class KnowledgeBaseModel {
         updatedAt: knowledgeBases.updatedAt,
       })
       .from(knowledgeBases)
-      .where(eq(knowledgeBases.userId, this.userId))
+      .where(this.ownership())
       .orderBy(desc(knowledgeBases.updatedAt));
 
     return data as KnowledgeBaseItem[];
@@ -150,7 +159,7 @@ export class KnowledgeBaseModel {
 
   findById = async (id: string) => {
     return this.db.query.knowledgeBases.findFirst({
-      where: and(eq(knowledgeBases.id, id), eq(knowledgeBases.userId, this.userId)),
+      where: and(eq(knowledgeBases.id, id), this.ownership()),
     });
   };
 
@@ -159,7 +168,7 @@ export class KnowledgeBaseModel {
     this.db
       .update(knowledgeBases)
       .set({ ...value, updatedAt: new Date() })
-      .where(and(eq(knowledgeBases.id, id), eq(knowledgeBases.userId, this.userId)));
+      .where(and(eq(knowledgeBases.id, id), this.ownership()));
 
   findExclusiveFileIds = async (knowledgeBaseId: string): Promise<string[]> => {
     const kbFiles = await this.db
@@ -201,9 +210,7 @@ export class KnowledgeBaseModel {
       deletedFiles = (result || []).map((f) => ({ id: f.id, url: f.url }));
     }
 
-    await this.db
-      .delete(knowledgeBases)
-      .where(and(eq(knowledgeBases.id, id), eq(knowledgeBases.userId, this.userId)));
+    await this.db.delete(knowledgeBases).where(and(eq(knowledgeBases.id, id), this.ownership()));
 
     return { deletedFiles };
   };
@@ -223,7 +230,7 @@ export class KnowledgeBaseModel {
       deletedFiles = (result || []).map((f) => ({ id: f.id, url: f.url }));
     }
 
-    await this.db.delete(knowledgeBases).where(eq(knowledgeBases.userId, this.userId));
+    await this.db.delete(knowledgeBases).where(this.ownership());
 
     return { deletedFiles };
   };

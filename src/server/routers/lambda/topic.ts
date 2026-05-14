@@ -8,13 +8,14 @@ import { eq, inArray } from 'drizzle-orm';
 import { after } from 'next/server';
 import { z } from 'zod';
 
+import { wsCompatProcedure } from '@/business/server/trpc-middlewares/workspaceAuth';
 import { MessageModel } from '@/database/models/message';
 import { TopicModel } from '@/database/models/topic';
 import { TopicShareModel } from '@/database/models/topicShare';
 import { AgentMigrationRepo } from '@/database/repositories/agentMigration';
 import { TopicImporterRepo } from '@/database/repositories/topicImporter';
 import { agents, chatGroups, chatGroupsAgents } from '@/database/schemas';
-import { authedProcedure, router } from '@/libs/trpc/lambda';
+import { router } from '@/libs/trpc/lambda';
 import { serverDatabase } from '@/libs/trpc/lambda/middleware';
 import { type BatchTaskResult } from '@/types/service';
 
@@ -25,14 +26,15 @@ import {
 } from './_helpers/resolveContext';
 import { basicContextSchema } from './_schema/context';
 
-const topicProcedure = authedProcedure.use(serverDatabase).use(async (opts) => {
+const topicProcedure = wsCompatProcedure.use(serverDatabase).use(async (opts) => {
   const { ctx } = opts;
+  const wsId = ctx.workspaceId ?? undefined;
 
   return opts.next({
     ctx: {
       agentMigrationRepo: new AgentMigrationRepo(ctx.serverDB, ctx.userId),
       topicImporterRepo: new TopicImporterRepo(ctx.serverDB, ctx.userId),
-      topicModel: new TopicModel(ctx.serverDB, ctx.userId),
+      topicModel: new TopicModel(ctx.serverDB, ctx.userId, wsId),
       topicShareModel: new TopicShareModel(ctx.serverDB, ctx.userId),
     },
   });
@@ -59,7 +61,8 @@ export const topicRouter = router({
       }
 
       // Fallback: fetch recent messages with correct agentId/groupId
-      const messageModel = new MessageModel(ctx.serverDB, ctx.userId);
+      const wsId = ctx.workspaceId ?? undefined;
+      const messageModel = new MessageModel(ctx.serverDB, ctx.userId, wsId);
       const messages = await messageModel.query({
         agentId: topic.agentId ?? undefined,
         groupId: topic.groupId ?? undefined,

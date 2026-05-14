@@ -89,6 +89,7 @@ const baseBrief = (overrides: Partial<BriefItem>): BriefItem => ({
   trigger: 'agent-signal:nightly-review',
   type: 'decision',
   userId: 'user-1',
+  workspaceId: null,
   ...overrides,
 });
 

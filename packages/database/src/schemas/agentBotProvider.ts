@@ -33,6 +33,8 @@ export const agentBotProviders = pgTable(
       .references(() => users.id, { onDelete: 'cascade' })
       .notNull(),
 
+    workspaceId: text('workspace_id'),
+
     /** Platform identifier: 'discord' | 'slack' | 'feishu' | ... */
     platform: varchar('platform', { length: 50 }).notNull(),
 
@@ -55,6 +57,7 @@ export const agentBotProviders = pgTable(
     index('agent_bot_providers_platform_idx').on(t.platform),
     index('agent_bot_providers_agent_id_idx').on(t.agentId),
     index('agent_bot_providers_user_id_idx').on(t.userId),
+    index('agent_bot_providers_workspace_id_idx').on(t.workspaceId),
   ],
 );
 

@@ -13,11 +13,12 @@ import {
 
 const oauthProcedure = authedProcedure.use(serverDatabase).use(async (opts) => {
   const { ctx } = opts;
+  const wsId = ctx.workspaceId ?? undefined;
   const gateKeeper = await KeyVaultsGateKeeper.initWithEnvKey();
 
   return opts.next({
     ctx: {
-      aiProviderModel: new AiProviderModel(ctx.serverDB, ctx.userId),
+      aiProviderModel: new AiProviderModel(ctx.serverDB, ctx.userId, wsId),
       gateKeeper,
     },
   });

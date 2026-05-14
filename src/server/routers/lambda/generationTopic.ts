@@ -1,20 +1,22 @@
 import { z } from 'zod';
 
+import { wsCompatProcedure } from '@/business/server/trpc-middlewares/workspaceAuth';
 import { GenerationTopicModel } from '@/database/models/generationTopic';
 import { type GenerationTopicItem } from '@/database/schemas/generation';
-import { authedProcedure, router } from '@/libs/trpc/lambda';
+import { router } from '@/libs/trpc/lambda';
 import { serverDatabase } from '@/libs/trpc/lambda/middleware';
 import { FileService } from '@/server/services/file';
 import { GenerationService } from '@/server/services/generation';
 
-const generationTopicProcedure = authedProcedure.use(serverDatabase).use(async (opts) => {
+const generationTopicProcedure = wsCompatProcedure.use(serverDatabase).use(async (opts) => {
   const { ctx } = opts;
+  const wsId = ctx.workspaceId ?? undefined;
 
   return opts.next({
     ctx: {
       fileService: new FileService(ctx.serverDB, ctx.userId),
       generationService: new GenerationService(ctx.serverDB, ctx.userId),
-      generationTopicModel: new GenerationTopicModel(ctx.serverDB, ctx.userId),
+      generationTopicModel: new GenerationTopicModel(ctx.serverDB, ctx.userId, wsId),
     },
   });
 });

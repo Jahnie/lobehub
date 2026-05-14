@@ -37,6 +37,7 @@ const toIsoString = (value?: Date | null) => (value ? value.toISOString() : unde
 
 const agentEvalExternalProcedure = authedProcedure.use(serverDatabase).use(async (opts) => {
   const { ctx } = opts;
+  const wsId = ctx.workspaceId ?? undefined;
 
   return opts.next({
     ctx: {
@@ -45,7 +46,7 @@ const agentEvalExternalProcedure = authedProcedure.use(serverDatabase).use(async
       runService: new AgentEvalRunService(ctx.serverDB, ctx.userId),
       runTopicModel: new AgentEvalRunTopicModel(ctx.serverDB, ctx.userId),
       testCaseModel: new AgentEvalTestCaseModel(ctx.serverDB, ctx.userId),
-      threadModel: new ThreadModel(ctx.serverDB, ctx.userId),
+      threadModel: new ThreadModel(ctx.serverDB, ctx.userId, wsId),
     },
   });
 });

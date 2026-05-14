@@ -1,18 +1,20 @@
 import { z } from 'zod';
 
+import { wsCompatProcedure } from '@/business/server/trpc-middlewares/workspaceAuth';
 import { GenerationBatchModel } from '@/database/models/generationBatch';
-import { authedProcedure, router } from '@/libs/trpc/lambda';
+import { router } from '@/libs/trpc/lambda';
 import { serverDatabase } from '@/libs/trpc/lambda/middleware';
 import { FileService } from '@/server/services/file';
 import { getVideoAvgLatency } from '@/server/services/generation/latency';
 
-const generationBatchProcedure = authedProcedure.use(serverDatabase).use(async (opts) => {
+const generationBatchProcedure = wsCompatProcedure.use(serverDatabase).use(async (opts) => {
   const { ctx } = opts;
+  const wsId = ctx.workspaceId ?? undefined;
 
   return opts.next({
     ctx: {
       fileService: new FileService(ctx.serverDB, ctx.userId),
-      generationBatchModel: new GenerationBatchModel(ctx.serverDB, ctx.userId),
+      generationBatchModel: new GenerationBatchModel(ctx.serverDB, ctx.userId, wsId),
     },
   });
 });

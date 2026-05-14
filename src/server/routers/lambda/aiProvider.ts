@@ -1,10 +1,11 @@
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 
+import { wsCompatProcedure } from '@/business/server/trpc-middlewares/workspaceAuth';
 import { AiProviderModel } from '@/database/models/aiProvider';
 import { UserModel } from '@/database/models/user';
 import { AiInfraRepos } from '@/database/repositories/aiInfra';
-import { authedProcedure, router } from '@/libs/trpc/lambda';
+import { router } from '@/libs/trpc/lambda';
 import { serverDatabase } from '@/libs/trpc/lambda/middleware';
 import { getServerGlobalConfig } from '@/server/globalConfig';
 import { KeyVaultsGateKeeper } from '@/server/modules/KeyVaultsEncrypt';
@@ -17,8 +18,9 @@ import {
 } from '@/types/aiProvider';
 import { type ProviderConfig } from '@/types/user/settings';
 
-const aiProviderProcedure = authedProcedure.use(serverDatabase).use(async (opts) => {
+const aiProviderProcedure = wsCompatProcedure.use(serverDatabase).use(async (opts) => {
   const { ctx } = opts;
+  const wsId = ctx.workspaceId ?? undefined;
 
   const { aiProvider } = await getServerGlobalConfig();
 
@@ -30,7 +32,7 @@ const aiProviderProcedure = authedProcedure.use(serverDatabase).use(async (opts)
         ctx.userId,
         aiProvider as Record<string, ProviderConfig>,
       ),
-      aiProviderModel: new AiProviderModel(ctx.serverDB, ctx.userId),
+      aiProviderModel: new AiProviderModel(ctx.serverDB, ctx.userId, wsId),
       gateKeeper,
       userModel: new UserModel(ctx.serverDB, ctx.userId),
     },

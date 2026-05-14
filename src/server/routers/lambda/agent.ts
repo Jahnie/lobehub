@@ -3,27 +3,29 @@ import { CreateAgentSchema, type KnowledgeItem } from '@lobechat/types';
 import { KnowledgeType } from '@lobechat/types';
 import { z } from 'zod';
 
+import { wsCompatProcedure } from '@/business/server/trpc-middlewares/workspaceAuth';
 import { AgentModel } from '@/database/models/agent';
 import { ChatGroupModel } from '@/database/models/chatGroup';
 import { FileModel } from '@/database/models/file';
 import { KnowledgeBaseModel } from '@/database/models/knowledgeBase';
 import { SessionModel } from '@/database/models/session';
 import { UserModel } from '@/database/models/user';
-import { authedProcedure, router } from '@/libs/trpc/lambda';
+import { router } from '@/libs/trpc/lambda';
 import { serverDatabase } from '@/libs/trpc/lambda/middleware';
 import { AgentService } from '@/server/services/agent';
 
-const agentProcedure = authedProcedure.use(serverDatabase).use(async (opts) => {
+const agentProcedure = wsCompatProcedure.use(serverDatabase).use(async (opts) => {
   const { ctx } = opts;
+  const wsId = ctx.workspaceId ?? undefined;
 
   return opts.next({
     ctx: {
-      agentModel: new AgentModel(ctx.serverDB, ctx.userId),
+      agentModel: new AgentModel(ctx.serverDB, ctx.userId, wsId),
       agentService: new AgentService(ctx.serverDB, ctx.userId),
       chatGroupModel: new ChatGroupModel(ctx.serverDB, ctx.userId),
-      fileModel: new FileModel(ctx.serverDB, ctx.userId),
-      knowledgeBaseModel: new KnowledgeBaseModel(ctx.serverDB, ctx.userId),
-      sessionModel: new SessionModel(ctx.serverDB, ctx.userId),
+      fileModel: new FileModel(ctx.serverDB, ctx.userId, wsId),
+      knowledgeBaseModel: new KnowledgeBaseModel(ctx.serverDB, ctx.userId, wsId),
+      sessionModel: new SessionModel(ctx.serverDB, ctx.userId, wsId),
     },
   });
 });

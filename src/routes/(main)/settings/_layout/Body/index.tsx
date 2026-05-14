@@ -35,7 +35,7 @@ const Body = memo(() => {
         gap={8}
         defaultExpandedKeys={[
           SettingsGroupKey.General,
-          SettingsGroupKey.Subscription,
+          SettingsGroupKey.Workspace,
           SettingsGroupKey.Agent,
           SettingsGroupKey.System,
         ]}

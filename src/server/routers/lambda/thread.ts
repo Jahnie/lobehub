@@ -1,10 +1,11 @@
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 
+import { wsCompatProcedure } from '@/business/server/trpc-middlewares/workspaceAuth';
 import { MessageModel } from '@/database/models/message';
 import { ThreadModel } from '@/database/models/thread';
 import { insertThreadSchema } from '@/database/schemas';
-import { authedProcedure, router } from '@/libs/trpc/lambda';
+import { router } from '@/libs/trpc/lambda';
 import { serverDatabase } from '@/libs/trpc/lambda/middleware';
 import { type ThreadItem } from '@/types/topic/thread';
 import { createThreadSchema } from '@/types/topic/thread';
@@ -32,13 +33,14 @@ const ensureThreadCreated = <T extends { id: string } | undefined>(
   });
 };
 
-const threadProcedure = authedProcedure.use(serverDatabase).use(async (opts) => {
+const threadProcedure = wsCompatProcedure.use(serverDatabase).use(async (opts) => {
   const { ctx } = opts;
+  const wsId = ctx.workspaceId ?? undefined;
 
   return opts.next({
     ctx: {
-      messageModel: new MessageModel(ctx.serverDB, ctx.userId),
-      threadModel: new ThreadModel(ctx.serverDB, ctx.userId),
+      messageModel: new MessageModel(ctx.serverDB, ctx.userId, wsId),
+      threadModel: new ThreadModel(ctx.serverDB, ctx.userId, wsId),
     },
   });
 });

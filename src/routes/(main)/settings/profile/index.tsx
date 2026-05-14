@@ -6,6 +6,7 @@ import { Divider } from 'antd';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import BusinessProfileBanner from '@/business/client/BusinessProfileBanner';
 import SettingHeader from '@/routes/(main)/settings/features/SettingHeader';
 import { useServerConfigStore } from '@/store/serverConfig';
 import { serverConfigSelectors } from '@/store/serverConfig/selectors';
@@ -67,6 +68,7 @@ const ProfileSetting = () => {
   return (
     <>
       <SettingHeader title={t('profile.title')} />
+      <BusinessProfileBanner />
       <FormGroup collapsible={false} gap={16} title={t('profile.account')} variant={'filled'}>
         <Flexbox style={{ display: isLoading ? 'flex' : 'none' }}>
           <SkeletonRow />

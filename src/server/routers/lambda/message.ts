@@ -7,10 +7,11 @@ import {
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 
+import { wsCompatProcedure } from '@/business/server/trpc-middlewares/workspaceAuth';
 import { MessageModel } from '@/database/models/message';
 import { TopicShareModel } from '@/database/models/topicShare';
 import { CompressionRepository } from '@/database/repositories/compression';
-import { authedProcedure, publicProcedure, router } from '@/libs/trpc/lambda';
+import { publicProcedure, router } from '@/libs/trpc/lambda';
 import { serverDatabase } from '@/libs/trpc/lambda/middleware';
 import { FileService } from '@/server/services/file';
 import { MessageService } from '@/server/services/message';
@@ -18,14 +19,15 @@ import { MessageService } from '@/server/services/message';
 import { resolveAgentIdFromSession, resolveContext } from './_helpers/resolveContext';
 import { basicContextSchema } from './_schema/context';
 
-const messageProcedure = authedProcedure.use(serverDatabase).use(async (opts) => {
+const messageProcedure = wsCompatProcedure.use(serverDatabase).use(async (opts) => {
   const { ctx } = opts;
+  const wsId = ctx.workspaceId ?? undefined;
 
   return opts.next({
     ctx: {
       compressionRepo: new CompressionRepository(ctx.serverDB, ctx.userId),
       fileService: new FileService(ctx.serverDB, ctx.userId),
-      messageModel: new MessageModel(ctx.serverDB, ctx.userId),
+      messageModel: new MessageModel(ctx.serverDB, ctx.userId, wsId),
       messageService: new MessageService(ctx.serverDB, ctx.userId),
     },
   });
@@ -217,7 +219,8 @@ export const messageRouter = router({
         throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Authentication required' });
       }
 
-      const messageModel = new MessageModel(ctx.serverDB, ctx.userId);
+      const wsId = ctx.workspaceId ?? undefined;
+      const messageModel = new MessageModel(ctx.serverDB, ctx.userId, wsId);
       const fileService = new FileService(ctx.serverDB, ctx.userId);
 
       return messageModel.query(queryParams, {

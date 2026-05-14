@@ -1,15 +1,17 @@
 import { z } from 'zod';
 
+import { wsCompatProcedure } from '@/business/server/trpc-middlewares/workspaceAuth';
 import { ApiKeyModel } from '@/database/models/apiKey';
-import { authedProcedure, router } from '@/libs/trpc/lambda';
+import { router } from '@/libs/trpc/lambda';
 import { serverDatabase } from '@/libs/trpc/lambda/middleware';
 
-const apiKeyProcedure = authedProcedure.use(serverDatabase).use(async (opts) => {
+const apiKeyProcedure = wsCompatProcedure.use(serverDatabase).use(async (opts) => {
   const { ctx } = opts;
+  const wsId = ctx.workspaceId ?? undefined;
 
   return opts.next({
     ctx: {
-      apiKeyModel: new ApiKeyModel(ctx.serverDB, ctx.userId),
+      apiKeyModel: new ApiKeyModel(ctx.serverDB, ctx.userId, wsId),
     },
   });
 });

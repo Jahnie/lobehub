@@ -1,15 +1,16 @@
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 
+import { wsCompatProcedure } from '@/business/server/trpc-middlewares/workspaceAuth';
 import { BriefModel } from '@/database/models/brief';
 import { TaskModel } from '@/database/models/task';
-import { authedProcedure, router } from '@/libs/trpc/lambda';
+import { router } from '@/libs/trpc/lambda';
 import { serverDatabase } from '@/libs/trpc/lambda/middleware';
 import { AgentSignalSelfReviewBriefService } from '@/server/services/agentSignal/services/briefs/selfReview';
 import { NIGHTLY_REVIEW_BRIEF_TRIGGER } from '@/server/services/agentSignal/services/selfIteration/review/brief';
 import { BriefService } from '@/server/services/brief';
 
-const briefProcedure = authedProcedure.use(serverDatabase);
+const briefProcedure = wsCompatProcedure.use(serverDatabase);
 
 const idInput = z.object({ id: z.string() });
 
@@ -47,12 +48,12 @@ export const briefRouter = router({
 
       // Resolve taskId if it's an identifier
       if (createData.taskId) {
-        const taskModel = new TaskModel(ctx.serverDB, ctx.userId);
+        const taskModel = new TaskModel(ctx.serverDB, ctx.userId, ctx.workspaceId ?? undefined);
         const task = await taskModel.resolve(createData.taskId);
         if (task) createData.taskId = task.id;
       }
 
-      const model = new BriefModel(ctx.serverDB, ctx.userId);
+      const model = new BriefModel(ctx.serverDB, ctx.userId, ctx.workspaceId ?? undefined);
       const brief = await model.create(createData);
       return { data: brief, message: 'Brief created', success: true };
     } catch (error) {
@@ -67,7 +68,7 @@ export const briefRouter = router({
 
   delete: briefProcedure.input(idInput).mutation(async ({ input, ctx }) => {
     try {
-      const model = new BriefModel(ctx.serverDB, ctx.userId);
+      const model = new BriefModel(ctx.serverDB, ctx.userId, ctx.workspaceId ?? undefined);
       const deleted = await model.delete(input.id);
       if (!deleted) throw new TRPCError({ code: 'NOT_FOUND', message: 'Brief not found' });
       return { message: 'Brief deleted', success: true };
@@ -84,7 +85,7 @@ export const briefRouter = router({
 
   find: briefProcedure.input(idInput).query(async ({ input, ctx }) => {
     try {
-      const model = new BriefModel(ctx.serverDB, ctx.userId);
+      const model = new BriefModel(ctx.serverDB, ctx.userId, ctx.workspaceId ?? undefined);
       const brief = await model.findById(input.id);
       if (!brief) throw new TRPCError({ code: 'NOT_FOUND', message: 'Brief not found' });
       return { data: brief, success: true };
@@ -103,7 +104,7 @@ export const briefRouter = router({
     .input(z.object({ taskId: z.string() }))
     .query(async ({ input, ctx }) => {
       try {
-        const model = new BriefModel(ctx.serverDB, ctx.userId);
+        const model = new BriefModel(ctx.serverDB, ctx.userId, ctx.workspaceId ?? undefined);
         const items = await model.findByTaskId(input.taskId);
         return { data: items, success: true };
       } catch (error) {
@@ -149,7 +150,7 @@ export const briefRouter = router({
 
   markRead: briefProcedure.input(idInput).mutation(async ({ input, ctx }) => {
     try {
-      const model = new BriefModel(ctx.serverDB, ctx.userId);
+      const model = new BriefModel(ctx.serverDB, ctx.userId, ctx.workspaceId ?? undefined);
       const brief = await model.markRead(input.id);
       if (!brief) throw new TRPCError({ code: 'NOT_FOUND', message: 'Brief not found' });
       return { data: brief, message: 'Brief marked as read', success: true };
@@ -175,7 +176,7 @@ export const briefRouter = router({
     )
     .mutation(async ({ input, ctx }) => {
       try {
-        const model = new BriefModel(ctx.serverDB, ctx.userId);
+        const model = new BriefModel(ctx.serverDB, ctx.userId, ctx.workspaceId ?? undefined);
         const currentBrief = await model.findById(input.id);
         if (!currentBrief) throw new TRPCError({ code: 'NOT_FOUND', message: 'Brief not found' });
 

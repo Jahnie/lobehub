@@ -1,12 +1,13 @@
 import { InsertChatGroupSchema } from '@lobechat/types';
 import { z } from 'zod';
 
+import { wsCompatProcedure } from '@/business/server/trpc-middlewares/workspaceAuth';
 import { AgentModel } from '@/database/models/agent';
 import { ChatGroupModel } from '@/database/models/chatGroup';
 import { UserModel } from '@/database/models/user';
 import { AgentGroupRepository } from '@/database/repositories/agentGroup';
 import { type ChatGroupConfig } from '@/database/types/chatGroup';
-import { authedProcedure, router } from '@/libs/trpc/lambda';
+import { router } from '@/libs/trpc/lambda';
 import { serverDatabase } from '@/libs/trpc/lambda/middleware';
 import { AgentGroupService } from '@/server/services/agentGroup';
 
@@ -39,15 +40,16 @@ const agentMemberInputSchema = z
   })
   .partial();
 
-const agentGroupProcedure = authedProcedure.use(serverDatabase).use(async (opts) => {
+const agentGroupProcedure = wsCompatProcedure.use(serverDatabase).use(async (opts) => {
   const { ctx } = opts;
+  const wsId = ctx.workspaceId ?? undefined;
 
   return opts.next({
     ctx: {
       agentGroupRepo: new AgentGroupRepository(ctx.serverDB, ctx.userId),
       agentGroupService: new AgentGroupService(ctx.serverDB, ctx.userId),
-      agentModel: new AgentModel(ctx.serverDB, ctx.userId),
-      chatGroupModel: new ChatGroupModel(ctx.serverDB, ctx.userId),
+      agentModel: new AgentModel(ctx.serverDB, ctx.userId, wsId),
+      chatGroupModel: new ChatGroupModel(ctx.serverDB, ctx.userId, wsId),
       userModel: new UserModel(ctx.serverDB, ctx.userId),
     },
   });

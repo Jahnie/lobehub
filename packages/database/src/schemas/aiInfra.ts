@@ -42,11 +42,14 @@ export const aiProviders = pgTable(
       .$defaultFn(() => ({}))
       .$type<AiProviderConfig>(),
 
+    workspaceId: text('workspace_id'),
+
     ...timestamps,
   },
   (table) => [
     primaryKey({ columns: [table.id, table.userId] }),
     index('ai_providers_user_id_idx').on(table.userId),
+    index('ai_providers_workspace_id_idx').on(table.workspaceId),
   ],
 );
 
@@ -77,11 +80,14 @@ export const aiModels = pgTable(
     releasedAt: varchar('released_at', { length: 10 }),
     settings: jsonb('settings').default({}).$type<AiModelSettings>(),
 
+    workspaceId: text('workspace_id'),
+
     ...timestamps,
   },
   (table) => [
     primaryKey({ columns: [table.id, table.providerId, table.userId] }),
     index('ai_models_user_id_idx').on(table.userId),
+    index('ai_models_workspace_id_idx').on(table.workspaceId),
   ],
 );
 

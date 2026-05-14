@@ -4,6 +4,8 @@ import Notification from '@/business/client/BusinessSettingPages/Notification';
 import Plans from '@/business/client/BusinessSettingPages/Plans';
 import Referral from '@/business/client/BusinessSettingPages/Referral';
 import Usage from '@/business/client/BusinessSettingPages/Usage';
+import WorkspaceGeneral from '@/business/client/BusinessSettingPages/WorkspaceGeneral';
+import WorkspaceMembers from '@/business/client/BusinessSettingPages/WorkspaceMembers';
 import { SettingsTabs } from '@/store/global/initialState';
 
 import About from '../about';
@@ -50,4 +52,7 @@ export const componentMap = {
   [SettingsTabs.Credits]: Credits,
   [SettingsTabs.Billing]: Billing,
   [SettingsTabs.Referral]: Referral,
+  [SettingsTabs.Workspace]: WorkspaceMembers,
+  [SettingsTabs.WorkspaceGeneral]: WorkspaceGeneral,
+  [SettingsTabs.WorkspaceMembers]: WorkspaceMembers,
 };
