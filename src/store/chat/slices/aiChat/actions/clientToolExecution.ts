@@ -92,8 +92,15 @@ export class ClientToolExecutionActionImpl {
       // ─── Builtin dispatch (via registry) ───
       if (hasExecutor(identifier, apiName)) {
         const operation = this.#get().operations[operationId];
+        // In agent_builder scope the operation's agentId is the builder agent itself,
+        // but write tools (updateConfig / updatePrompt / installPlugin) must target
+        // the agent being edited, which is chatStore.activeAgentId.
+        const isAgentBuilderScope = operation?.context?.scope === 'agent_builder';
+        const toolAgentId = isAgentBuilderScope
+          ? (this.#get().activeAgentId ?? operation?.context?.agentId)
+          : operation?.context?.agentId;
         const ctx: BuiltinToolContext = {
-          agentId: operation?.context?.agentId,
+          agentId: toolAgentId,
           documentId: operation?.context?.documentId,
           groupId: operation?.context?.groupId,
           // Gateway-side tool messages are persisted on the server; the client
