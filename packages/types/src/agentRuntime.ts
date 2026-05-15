@@ -30,10 +30,18 @@ export enum RequestTrigger {
 }
 
 export enum RuntimeRequestType {
+  /** Scheduled or workflow-driven runtime execution without a live client request. */
   BackgroundJob = 'background_job',
+  /** First-party web browser request. */
+  Browser = 'browser',
+  /** Third-party or API-style entrypoint, such as OpenAPI, bot, or CLI. */
   ExternalApi = 'external_api',
+  /** Server-owned runtime work that is not part of a direct user request chain. */
   InternalTask = 'internal_task',
-  UserInteraction = 'user_interaction',
+  /** First-party mobile app request. */
+  Mobile = 'mobile',
+  /** Server-side application request chain, distinct from Next.js Server Actions. */
+  ServerSide = 'server_side',
 }
 
 export interface RuntimeCallMetadata extends Record<string, unknown> {
