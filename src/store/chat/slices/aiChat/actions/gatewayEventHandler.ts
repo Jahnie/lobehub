@@ -371,10 +371,13 @@ export const createGatewayEventHandler = (
 
         if (data?.phase === 'human_approval' && data.requiresApproval && data.pendingToolsCalling) {
           void notifyDesktopHumanApprovalRequired(get, context);
-          // Persist a paused marker so the sidebar reflects "waiting on user" across reload.
-          // Resume back to 'running' is free: approve / reject both spawn a new op via the
-          // executor entries, which already write 'running'.
-          if (context.topicId) void get().updateTopicStatus?.(context.topicId, 'paused');
+          // Sidebar topic row swaps the running spinner for a hand icon
+          // (matches `waitingForHuman` in `TopicItem`) so the waiting state
+          // reads from the topic list across reload. Cleared by the
+          // resolver in `conversationControl` flipping to `active` —
+          // server-mode Gateway resume re-asserts `running` at its own
+          // `runtime_start` shortly after.
+          if (context.topicId) void get().updateTopicStatus?.(context.topicId, 'waitingForHuman');
         }
 
         break;

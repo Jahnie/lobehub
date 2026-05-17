@@ -767,6 +767,13 @@ export class StreamingExecutorActionImpl {
               groupId,
               topicId,
             });
+            // Sidebar topic row swaps the running spinner for a hand icon so
+            // it's obvious from the topic list that this conversation is
+            // blocked on the user, not still streaming. The matching
+            // `'active'` write happens in each resolver in
+            // `conversationControl` (approve/reject/skip/cancel/submit) so
+            // the icon clears the moment the user acts.
+            if (topicId) void this.#get().updateTopicStatus?.(topicId, 'waitingForHuman');
             break;
           }
 

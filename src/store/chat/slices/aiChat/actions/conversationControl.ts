@@ -253,6 +253,12 @@ export class ConversationControlActionImpl {
 
     const optimisticContext = { operationId };
 
+    // Clear the sidebar `waitingForHuman` hand icon. Gateway resume writes
+    // `running` at `runtime_start` and `active` at `runtime_end` shortly
+    // after; client-mode `executeClientAgent` doesn't write topic status, so
+    // landing on `active` here is the correct final state for that branch.
+    if (topicId) void this.#get().updateTopicStatus?.(topicId, 'active');
+
     // 2. Update intervention status to approved
     await this.#get().optimisticUpdateMessagePlugin(
       toolMessageId,
@@ -395,6 +401,10 @@ export class ConversationControlActionImpl {
 
     const optimisticContext: OptimisticUpdateContext = { operationId };
     const shouldCreateUserMessage = options?.createUserMessage !== false;
+
+    // Clear the sidebar `waitingForHuman` hand icon — `executeClientAgent`
+    // doesn't write topic status, so `active` is the correct final state.
+    if (topicId) void this.#get().updateTopicStatus?.(topicId, 'active');
 
     // 1. Mark intervention as approved and set tool result to user's response
     await this.#get().optimisticUpdateMessagePlugin(
@@ -568,6 +578,11 @@ export class ConversationControlActionImpl {
 
     const optimisticContext: OptimisticUpdateContext = { operationId };
 
+    // Clear the sidebar `waitingForHuman` hand icon — skip spawns a new
+    // `executeClientAgent` which doesn't write topic status, so `active`
+    // is the correct landing state for the sidebar after this resolves.
+    if (topicId) void this.#get().updateTopicStatus?.(topicId, 'active');
+
     // 1. Mark intervention as rejected (skipped) with reason
     await this.#get().optimisticUpdateMessagePlugin(
       toolMessageId,
@@ -686,6 +701,10 @@ export class ConversationControlActionImpl {
       undefined,
       optimisticContext,
     );
+
+    // Cancel ends the conversation without a follow-up runtime, so flip the
+    // sidebar back to `active` directly (no `runtime_end` will land here).
+    if (topicId) void this.#get().updateTopicStatus?.(topicId, 'active');
 
     completeOperation(operationId);
   };
@@ -939,6 +958,12 @@ export class ConversationControlActionImpl {
     );
     const requestMetadata = this.#getRequestMetadataFromMessageChain(messageId);
 
+    // Clear the sidebar `waitingForHuman` hand icon. Both modes converge on
+    // `active`: server-mode Gateway resume re-asserts `running` shortly and
+    // lands on `active` again at `runtime_end`; client-mode pure-reject has
+    // no follow-up runtime, so `active` is the correct terminal state.
+    if (topicId) void this.#get().updateTopicStatus?.(topicId, 'active');
+
     // Server-mode: start a **new** Gateway op carrying the rejection.
     // We use `rejected_continue` uniformly — server-side `rejected` and
     // `rejected_continue` share the same code path (both surface the
@@ -1024,6 +1049,11 @@ export class ConversationControlActionImpl {
       });
 
       const optimisticContext = { operationId };
+
+      // Clear the sidebar `waitingForHuman` hand icon — Gateway resume
+      // re-asserts `running` at its `runtime_start` shortly.
+      if (topicId) void this.#get().updateTopicStatus?.(topicId, 'active');
+
       await this.#get().optimisticUpdateMessagePlugin(
         messageId,
         { intervention: { rejectedReason: reason, status: 'rejected' } as any },
