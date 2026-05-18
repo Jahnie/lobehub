@@ -22,6 +22,7 @@
       "@/utils/*": ["./packages/utils/src/*", "./src/utils/*"],
       "@/types/*": ["./packages/types/src/*", "./src/types/*"],
       "@/server/*": ["./apps/server/src/*", "./src/server/*"],
+      "@/envs/*": ["./packages/env/src/*", "./src/envs/*"],
       "@/*": ["./src/*"],
       "~test-utils": ["./tests/utils.tsx"]
     },
