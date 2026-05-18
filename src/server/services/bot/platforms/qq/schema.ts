@@ -5,7 +5,8 @@ import {
   displayToolCallsField,
   makeDmPolicyField,
   makeGroupPolicyFields,
-  userIdField,
+  makeUserIdField,
+  watchKeywordsField,
 } from '../const';
 import type { FieldSchema } from '../types';
 import { DEFAULT_QQ_CONNECTION_MODE } from './const';
@@ -36,6 +37,7 @@ export const schema: FieldSchema[] = [
     key: 'settings',
     label: 'channel.settings',
     properties: [
+      makeUserIdField('qq'),
       {
         key: 'connectionMode',
         default: DEFAULT_QQ_CONNECTION_MODE,
@@ -86,10 +88,10 @@ export const schema: FieldSchema[] = [
         type: 'boolean',
       },
       displayToolCallsField,
-      userIdField,
       makeDmPolicyField({ policy: 'open' }),
       ...makeGroupPolicyFields({ policy: 'open' }),
       allowFromField,
+      watchKeywordsField,
     ],
     type: 'object',
   },

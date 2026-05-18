@@ -11,6 +11,10 @@ export default {
   'channel.botTokenPlaceholderNew': 'Paste your bot token here',
   'channel.connectionConfig': 'Connection Configuration',
   'channel.copied': 'Copied to clipboard',
+  'channel.comingSoon': 'Coming Soon',
+  'channel.comingSoonDesc':
+    'We are working on bringing this integration to LobeHub. Stay tuned for updates.',
+  'channel.comingSoonTitle': '{{name}} integration is coming soon',
   'channel.copy': 'Copy',
   'channel.deleteAllChannels': 'Remove All Channels',
   'channel.deleteAllConfirm': 'Are you sure you want to remove all channels?',
@@ -28,6 +32,10 @@ export default {
   'channel.discord.description':
     'Connect this assistant to Discord server for channel chat and direct messages.',
   'channel.documentation': 'Documentation',
+  'channel.messengerPromo.action': 'Try Messenger',
+  'channel.messengerPromo.desc': 'No bot setup. Chat with LobeHub on Slack, Discord, Telegram.',
+  'channel.messengerPromo.dismiss': 'Dismiss',
+  'channel.messengerPromo.title': 'Skip the setup',
   'channel.exportConfig': 'Export Configuration',
   'channel.importConfig': 'Import Configuration',
   'channel.importSuccess': 'Configuration imported successfully',
@@ -50,6 +58,25 @@ export default {
   'channel.feishu.webhookMigrationDesc':
     'WebSocket mode provides real-time event delivery without needing a public callback URL. To migrate, switch the Connection Mode to WebSocket in Advanced Settings. No additional configuration is needed on the Feishu/Lark Open Platform.',
   'channel.lark.description': 'Connect this assistant to Lark for private and group chats.',
+  'channel.line.description':
+    'Connect this assistant to LINE Messaging API for direct and group chats.',
+  'channel.line.destinationUserId': 'Destination User ID',
+  'channel.line.destinationUserIdHint':
+    'The bot\'s own user ID (`U` + 32 chars) — click "Fetch from LINE" below to auto-fill. Not the personal "Your user ID" shown in LINE\'s Basic settings.',
+  'channel.line.fetchBotInfo': 'Fetch from LINE',
+  'channel.line.fetchBotInfoSuccess': 'Destination User ID fetched',
+  'channel.line.fetchBotInfoFailed': 'Failed to fetch bot info',
+  'channel.line.fetchBotInfoMissingToken':
+    'Enter the Channel Access Token first, then click "Fetch from LINE".',
+  'channel.line.destinationUserIdPlaceholder': 'e.g. U1234567890abcdef1234567890abcdef',
+  'channel.line.channelAccessToken': 'Channel Access Token',
+  'channel.line.channelAccessTokenHint':
+    'Long-lived token issued under the Messaging API tab. Token will be encrypted and stored securely.',
+  'channel.line.channelSecret': 'Channel Secret',
+  'channel.line.channelSecretHint':
+    'From the Basic settings tab. Required — used to verify X-Line-Signature on every inbound webhook.',
+  'channel.line.webhookManualSetup':
+    'LINE does not allow programmatic webhook registration. Copy this URL into the LINE Developers Console (Messaging API → Webhook URL), click "Verify", and enable "Use webhook".',
   'channel.openPlatform': 'Open Platform',
   'channel.platforms': 'Platforms',
   'channel.publicKey': 'Public Key',
@@ -168,6 +195,17 @@ export default {
   'channel.groupAllowFromAdd': 'Add channel',
   'channel.groupAllowFromEmpty': 'No channels added yet — the bot will not respond anywhere.',
   'channel.allowListRemove': 'Remove',
+  'channel.watchKeywords': 'Watch Keywords',
+  'channel.watchKeywordsHint':
+    'A keyword match wakes the bot without an @mention; its instruction is prepended to the user message. Whole-word, case-insensitive.',
+  'channel.watchKeywordLabel': 'Keyword',
+  'channel.watchKeywordPlaceholder': 'e.g. bug',
+  'channel.watchKeywordInstructionLabel': 'Instruction',
+  'channel.watchKeywordInstructionPlaceholder':
+    'e.g. Scan the recent thread and reply if there is an actionable bug report',
+  'channel.watchKeywordsAdd': 'Add keyword',
+  'channel.watchKeywordsEmpty':
+    'No keywords added yet — bot only wakes on @mention or DM in subscribed channels.',
   'channel.settings': 'Advanced Settings',
   'channel.settingsResetConfirm': 'Are you sure you want to reset advanced settings to default?',
   'channel.settingsResetDefault': 'Reset to Default',
@@ -182,9 +220,26 @@ export default {
   'channel.historyLimitHint': 'Default number of messages to fetch when reading channel history',
   'channel.serverId': 'Default Server ID',
   'channel.serverIdHint': 'Default server / guild AI tools act on; not used for access control',
+  'channel.serverIdHint.discord':
+    'Enable Developer Mode (Settings → Advanced), then right-click the server icon → Copy Server ID.',
+  'channel.serverIdHint.slack':
+    'Workspace ID (starts with T). Find it under Settings & administration → Workspace settings, or in the workspace URL.',
   'channel.userId': 'Your Platform User ID',
   'channel.userIdHint':
     'Lets AI tools reach you proactively (e.g. reminders); auto-trusted by the global allowlist',
+  'channel.userIdMissingDesc':
+    "Without it, AI tools can't reach you with reminders, and pairing approvals will fail. Fill it in under Advanced Settings.",
+  'channel.userIdMissingTitle': 'Add your platform User ID',
+  'channel.userIdHint.discord':
+    'Enable Developer Mode (Settings → Advanced), then right-click your avatar → Copy User ID.',
+  'channel.userIdHint.feishu':
+    'Open your app on the Feishu / Lark Open Platform → Permissions, then look up your Open ID.',
+  'channel.userIdHint.line':
+    'Open the LINE Developers Console → your channel → Basic settings tab, and copy "Your user ID" (starts with U, 33 chars).',
+  'channel.userIdHint.qq': 'Your QQ number, shown on your QQ profile page.',
+  'channel.userIdHint.slack': 'Open your Slack profile → ⋮ More → Copy member ID (starts with U).',
+  'channel.userIdHint.telegram':
+    'Send any message to @userinfobot in Telegram — it replies with your numeric User ID.',
   'channel.refreshStatus': 'Refresh status',
   'channel.runtimeDisconnected': 'Bot disconnected',
   'channel.statusConnected': 'Connected',

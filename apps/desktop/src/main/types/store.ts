@@ -5,6 +5,7 @@ import type {
 } from '@lobechat/electron-client-ipc';
 
 export interface ElectronMainStore {
+  appTrayVisible: boolean;
   dataSyncConfig: DataSyncConfig;
   encryptedTokens: {
     accessToken?: string;
@@ -18,6 +19,7 @@ export interface ElectronMainStore {
   gatewayEnabled: boolean;
   gatewayUrl: string;
   locale: string;
+  localFileWorkspaceRoots: string[];
   networkProxy: NetworkProxySettings;
   shortcuts: Record<string, string>;
   storagePath: string;

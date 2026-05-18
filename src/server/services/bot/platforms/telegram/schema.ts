@@ -5,7 +5,8 @@ import {
   displayToolCallsField,
   makeDmPolicyField,
   makeGroupPolicyFields,
-  userIdField,
+  makeUserIdField,
+  watchKeywordsField,
 } from '../const';
 import type { FieldSchema } from '../types';
 
@@ -43,6 +44,7 @@ export const schema: FieldSchema[] = [
     key: 'settings',
     label: 'channel.settings',
     properties: [
+      makeUserIdField('telegram'),
       {
         key: 'charLimit',
         default: 4000,
@@ -80,10 +82,10 @@ export const schema: FieldSchema[] = [
         type: 'boolean',
       },
       displayToolCallsField,
-      userIdField,
       makeDmPolicyField({ policy: 'open' }),
       ...makeGroupPolicyFields({ policy: 'open' }),
       allowFromField,
+      watchKeywordsField,
     ],
     type: 'object',
   },

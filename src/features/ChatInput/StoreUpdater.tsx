@@ -17,6 +17,9 @@ const StoreUpdater = memo<StoreUpdaterProps>(
   ({
     agentId,
     chatInputEditorRef,
+    contextWindowMessages,
+    disableMention,
+    disableSlash,
     mobile,
     sendButtonProps,
     leftActions,
@@ -34,11 +37,14 @@ const StoreUpdater = memo<StoreUpdaterProps>(
     const editor = useChatInputEditor();
 
     useStoreUpdater('agentId', agentId);
+    useStoreUpdater('contextWindowMessages', contextWindowMessages);
     useStoreUpdater('mobile', mobile!);
     useStoreUpdater('mentionItems', mentionItems);
     useStoreUpdater('leftActions', leftActions!);
     useStoreUpdater('rightActions', rightActions!);
     useStoreUpdater('allowExpand', allowExpand);
+    useStoreUpdater('disableMention', disableMention);
+    useStoreUpdater('disableSlash', disableSlash);
     useStoreUpdater('slashPlacement', slashPlacement);
     useStoreUpdater('getMessages', getMessages);
 

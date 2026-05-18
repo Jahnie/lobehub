@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
 import { message } from '@/components/AntdStaticMethods';
-import { DESKTOP_HEADER_ICON_SIZE } from '@/const/layoutTokens';
+import { DESKTOP_HEADER_ICON_SMALL_SIZE } from '@/const/layoutTokens';
 import NavHeader from '@/features/NavHeader';
 import ToggleRightPanelButton from '@/features/RightPanel/ToggleRightPanelButton';
 import { useMarketAuth } from '@/layout/AuthProvider/MarketAuth';
@@ -33,6 +33,7 @@ const Header = memo(() => {
   const meta = useAgentStore(agentSelectors.currentAgentMeta, isEqual);
   const systemRole = useAgentStore(agentSelectors.currentAgentSystemRole);
   const activeAgentId = useAgentStore((s) => s.activeAgentId);
+  const isHeterogeneous = useAgentStore(agentSelectors.isCurrentAgentHeterogeneous);
   const removeAgent = useHomeStore((s) => s.removeAgent);
   const { isAuthenticated, isLoading: isAuthLoading, signIn } = useMarketAuth();
   const { isUnderReview } = useVersionReviewStatus();
@@ -175,10 +176,12 @@ const Header = memo(() => {
               <ActionIcon
                 icon={MoreHorizontal}
                 loading={isPublishing || isAuthLoading}
-                size={DESKTOP_HEADER_ICON_SIZE}
+                size={DESKTOP_HEADER_ICON_SMALL_SIZE}
               />
             </DropdownMenu>
-            <ToggleRightPanelButton icon={BotMessageSquareIcon} showActive={true} />
+            {!isHeterogeneous && (
+              <ToggleRightPanelButton icon={BotMessageSquareIcon} showActive={true} />
+            )}
           </Flexbox>
         }
       />

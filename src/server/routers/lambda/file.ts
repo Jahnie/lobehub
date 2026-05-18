@@ -156,32 +156,43 @@ export const fileRouter = router({
         // If metadata fetch fails, use original size from input
       }
 
-      await businessFileUploadCheck({
-        actualSize,
-        clientIp: ctx.clientIp ?? undefined,
-        inputSize: input.size,
-        url: input.url,
-        userId: ctx.userId,
-      });
-
       if (actualSize < 0) {
+        await businessFileUploadCheck({
+          actualSize,
+          clientIp: ctx.clientIp ?? undefined,
+          inputSize: input.size,
+          url: input.url,
+          userId: ctx.userId,
+        });
         throw new TRPCError({ code: 'BAD_REQUEST', message: 'File size cannot be negative' });
       }
 
-      const { id } = await ctx.fileModel.create(
-        {
-          fileHash: input.hash,
-          fileType: input.fileType,
-          knowledgeBaseId: input.knowledgeBaseId,
-          metadata: input.metadata,
-          name: input.name,
-          parentId: resolvedParentId,
-          size: actualSize,
+      const { id } = await ctx.serverDB.transaction(async (trx) => {
+        await businessFileUploadCheck({
+          actualSize,
+          clientIp: ctx.clientIp ?? undefined,
+          inputSize: input.size,
+          transaction: trx,
           url: input.url,
-        },
-        // if the file is not exist in global file, create a new one
-        !isExist,
-      );
+          userId: ctx.userId,
+        });
+
+        return ctx.fileModel.create(
+          {
+            fileHash: input.hash,
+            fileType: input.fileType,
+            knowledgeBaseId: input.knowledgeBaseId,
+            metadata: input.metadata,
+            name: input.name,
+            parentId: resolvedParentId,
+            size: actualSize,
+            url: input.url,
+          },
+          // if the file is not exist in global file, create a new one
+          !isExist,
+          trx,
+        );
+      });
 
       return { id, url: getFileProxyUrl(id) };
     }),
@@ -314,7 +325,7 @@ export const fileRouter = router({
         resultItems.push({
           ...item,
           editorData: null,
-          url: getFileProxyUrl(item.id),
+          url: getFileProxyUrl(item.fileId || item.id),
           ...status,
         } as FileListItem);
       } else {
@@ -423,7 +434,7 @@ export const fileRouter = router({
     }),
 
   recentFiles: fileProcedure
-    .input(z.object({ limit: z.number().optional() }).optional())
+    .input(z.object({ limit: z.number().max(50).optional() }).optional())
     .query(async ({ ctx, input }) => {
       const limit = input?.limit ?? 12;
       // Query recent items and filter for files only (exclude documents/pages)
@@ -475,7 +486,7 @@ export const fileRouter = router({
           embeddingStatus: embeddingTask?.status as AsyncTaskStatus,
           finishEmbedding: embeddingTask?.status === AsyncTaskStatus.Success,
           sourceType: 'file' as const,
-          url: getFileProxyUrl(item.id),
+          url: getFileProxyUrl(item.fileId || item.id),
         } as FileListItem);
       }
 
@@ -483,7 +494,7 @@ export const fileRouter = router({
     }),
 
   recentPages: fileProcedure
-    .input(z.object({ limit: z.number().optional() }).optional())
+    .input(z.object({ limit: z.number().max(50).optional() }).optional())
     .query(async ({ ctx, input }) => {
       const limit = input?.limit ?? 12;
       // Query recent items and filter for pages (documents) only, exclude folders

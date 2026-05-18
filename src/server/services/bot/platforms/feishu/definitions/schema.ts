@@ -10,7 +10,8 @@ import {
   displayToolCallsField,
   makeDmPolicyField,
   makeGroupPolicyFields,
-  userIdField,
+  makeUserIdField,
+  watchKeywordsField,
 } from '../../const';
 import type { FieldSchema } from '../../types';
 import { DEFAULT_FEISHU_CONNECTION_MODE, MAX_FEISHU_HISTORY_LIMIT } from '../const';
@@ -55,6 +56,7 @@ export const sharedSchema: FieldSchema[] = [
     key: 'settings',
     label: 'channel.settings',
     properties: [
+      makeUserIdField('feishu'),
       {
         key: 'connectionMode',
         default: DEFAULT_FEISHU_CONNECTION_MODE,
@@ -114,10 +116,10 @@ export const sharedSchema: FieldSchema[] = [
         minimum: MIN_BOT_HISTORY_LIMIT,
         type: 'number',
       },
-      userIdField,
       makeDmPolicyField({ policy: 'open' }),
       ...makeGroupPolicyFields({ policy: 'open' }),
       allowFromField,
+      watchKeywordsField,
     ],
     type: 'object',
   },

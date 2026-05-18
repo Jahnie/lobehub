@@ -99,6 +99,81 @@ describe('TaskLifecycleService.onTopicComplete', () => {
       expect(updateStatus).toHaveBeenCalledWith('task-1', 'scheduled', { error: null });
     });
 
+    it('schedule-mode task under maxExecutions still parks at "scheduled"', async () => {
+      const task = baseTask({
+        automationMode: 'schedule',
+        config: { schedule: { maxExecutions: 10 } } as any,
+        context: {
+          scheduler: { scheduleStartedAt: new Date('2026-05-01T00:00:00Z').toISOString() },
+        } as any,
+      });
+      findById.mockResolvedValue(task);
+      (service as any).taskTopicModel.countByTask = vi.fn().mockResolvedValue(3);
+
+      await service.onTopicComplete({
+        operationId: 'op-1',
+        reason: 'done',
+        taskId: 'task-1',
+        taskIdentifier: 'TASK-1',
+        topicId: 'topic-1',
+      });
+
+      expect(updateStatus).toHaveBeenCalledWith('task-1', 'scheduled', { error: null });
+      expect(updateStatus).not.toHaveBeenCalledWith('task-1', 'completed', expect.anything());
+    });
+
+    it('schedule-mode task at maxExecutions parks at "completed" instead of "scheduled"', async () => {
+      // The reviewer-flagged P2 case: a daily cron with maxExecutions=1
+      // would otherwise sit in `scheduled` for 24h after the only allowed
+      // tick before the next pre-tick check noticed the cap.
+      const task = baseTask({
+        automationMode: 'schedule',
+        config: { schedule: { maxExecutions: 1 } } as any,
+        context: {
+          scheduler: { scheduleStartedAt: new Date('2026-05-01T00:00:00Z').toISOString() },
+        } as any,
+      });
+      findById.mockResolvedValue(task);
+      (service as any).taskTopicModel.countByTask = vi.fn().mockResolvedValue(1);
+
+      await service.onTopicComplete({
+        operationId: 'op-1',
+        reason: 'done',
+        taskId: 'task-1',
+        taskIdentifier: 'TASK-1',
+        topicId: 'topic-1',
+      });
+
+      expect(updateStatus).toHaveBeenCalledWith('task-1', 'completed', {
+        completedAt: expect.any(Date),
+      });
+      expect(updateStatus).not.toHaveBeenCalledWith('task-1', 'scheduled', expect.anything());
+    });
+
+    it('schedule-mode task with no scheduleStartedAt (pre-PR) still parks at "scheduled"', async () => {
+      const task = baseTask({
+        automationMode: 'schedule',
+        config: { schedule: { maxExecutions: 1 } } as any,
+        context: {} as any,
+      });
+      findById.mockResolvedValue(task);
+      const countByTask = vi.fn().mockResolvedValue(99);
+      (service as any).taskTopicModel.countByTask = countByTask;
+
+      await service.onTopicComplete({
+        operationId: 'op-1',
+        reason: 'done',
+        taskId: 'task-1',
+        taskIdentifier: 'TASK-1',
+        topicId: 'topic-1',
+      });
+
+      // Without scheduleStartedAt the helper short-circuits before querying,
+      // and the task falls through to the normal scheduled-park branch.
+      expect(countByTask).not.toHaveBeenCalled();
+      expect(updateStatus).toHaveBeenCalledWith('task-1', 'scheduled', { error: null });
+    });
+
     it('non-automation task with default checkpoint → status="paused" (legacy behavior)', async () => {
       const task = baseTask({ automationMode: null });
       findById.mockResolvedValue(task);
@@ -129,6 +204,75 @@ describe('TaskLifecycleService.onTopicComplete', () => {
       });
 
       expect(updateStatus).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('reason=done with brief.mode', () => {
+    it('calls synthesizeTopicBrief by default (auto mode) when content is substantive', async () => {
+      const task = baseTask({ automationMode: null });
+      findById.mockResolvedValue(task);
+      const synthesize = vi
+        .spyOn(service as any, 'synthesizeTopicBrief')
+        .mockResolvedValue(undefined);
+      vi.spyOn(service as any, 'generateHandoff').mockResolvedValue(undefined);
+
+      await service.onTopicComplete({
+        lastAssistantContent:
+          'I have completed the analysis and produced a multi-page report covering all sections.',
+        operationId: 'op-1',
+        reason: 'done',
+        taskId: 'task-1',
+        taskIdentifier: 'TASK-1',
+        topicId: 'topic-1',
+      });
+
+      expect(synthesize).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not call synthesizeTopicBrief when brief.mode=agent (legacy escape hatch)', async () => {
+      const task = baseTask({
+        automationMode: null,
+        config: { brief: { mode: 'agent' } },
+      });
+      findById.mockResolvedValue(task);
+      const synthesize = vi
+        .spyOn(service as any, 'synthesizeTopicBrief')
+        .mockResolvedValue(undefined);
+      vi.spyOn(service as any, 'generateHandoff').mockResolvedValue(undefined);
+
+      await service.onTopicComplete({
+        lastAssistantContent: 'enough content to count as substantive output',
+        operationId: 'op-1',
+        reason: 'done',
+        taskId: 'task-1',
+        taskIdentifier: 'TASK-1',
+        topicId: 'topic-1',
+      });
+
+      expect(synthesize).not.toHaveBeenCalled();
+    });
+
+    it('does not call synthesizeTopicBrief when judge terminates (review enabled + passed)', async () => {
+      const task = baseTask({ automationMode: null });
+      findById.mockResolvedValue(task);
+      // runAutoReview returns true → onTopicComplete returns early before
+      // reaching synthesizeTopicBrief.
+      vi.spyOn(service as any, 'runAutoReview').mockResolvedValue(true);
+      const synthesize = vi
+        .spyOn(service as any, 'synthesizeTopicBrief')
+        .mockResolvedValue(undefined);
+      vi.spyOn(service as any, 'generateHandoff').mockResolvedValue(undefined);
+
+      await service.onTopicComplete({
+        lastAssistantContent: 'enough content to count as substantive output',
+        operationId: 'op-1',
+        reason: 'done',
+        taskId: 'task-1',
+        taskIdentifier: 'TASK-1',
+        topicId: 'topic-1',
+      });
+
+      expect(synthesize).not.toHaveBeenCalled();
     });
   });
 

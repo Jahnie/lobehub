@@ -2,6 +2,118 @@
 
 # Changelog
 
+## [Version 2.1.57](https://github.com/lobehub/lobe-chat/compare/v2.1.57-canary.33...v2.1.57)
+
+<sup>Released on **2026-05-09**</sup>
+
+#### 🐛 Bug Fixes
+
+- **docker**: replace pnpm init with static package.json in /deps.
+- **onboarding**: guard skip/mode-switch footer with feature flag, desktop & init checks.
+- **misc**: hide runtime-only model aliases.
+
+#### ✨ Features
+
+- **misc**: set OSS default model to DeepSeek V4 Pro.
+
+<br/>
+
+<details>
+<summary><kbd>Improvements and Fixes</kbd></summary>
+
+#### What's fixed
+
+- **docker**: replace pnpm init with static package.json in /deps, closes [#14576](https://github.com/lobehub/lobe-chat/issues/14576) ([8ed31df](https://github.com/lobehub/lobe-chat/commit/8ed31df))
+- **onboarding**: guard skip/mode-switch footer with feature flag, desktop & init checks, closes [#14560](https://github.com/lobehub/lobe-chat/issues/14560) ([9756dab](https://github.com/lobehub/lobe-chat/commit/9756dab))
+- **misc**: hide runtime-only model aliases, closes [#14552](https://github.com/lobehub/lobe-chat/issues/14552) ([2d33322](https://github.com/lobehub/lobe-chat/commit/2d33322))
+
+#### What's improved
+
+- **misc**: set OSS default model to DeepSeek V4 Pro, closes [#14555](https://github.com/lobehub/lobe-chat/issues/14555) ([8105fc0](https://github.com/lobehub/lobe-chat/commit/8105fc0))
+
+</details>
+
+<div align="right">
+
+[![](https://img.shields.io/badge/-BACK_TO_TOP-151515?style=flat-square)](#readme-top)
+
+</div>
+
+### [Version 2.1.56](https://github.com/lobehub/lobe-chat/compare/v2.1.55...v2.1.56)
+
+<sup>Released on **2026-05-01**</sup>
+
+#### 👷 Build System
+
+- **database**: add `metadata` and `trigger` to `briefs` table.
+
+<br/>
+
+<details>
+<summary><kbd>Improvements and Fixes</kbd></summary>
+
+#### Build System
+
+- **database**: add `metadata` and `trigger` to `briefs` table, closes [#14354](https://github.com/lobehub/lobe-chat/issues/14354) ([86a23b5](https://github.com/lobehub/lobe-chat/commit/86a23b5))
+
+</details>
+
+<div align="right">
+
+[![](https://img.shields.io/badge/-BACK_TO_TOP-151515?style=flat-square)](#readme-top)
+
+</div>
+
+### [Version 2.1.55](https://github.com/lobehub/lobe-chat/compare/v2.1.54...v2.1.55)
+
+<sup>Released on **2026-04-29**</sup>
+
+#### 🐛 Bug Fixes
+
+- **chat**: preserve topics across cold route sends.
+
+<br/>
+
+<details>
+<summary><kbd>Improvements and Fixes</kbd></summary>
+
+#### What's fixed
+
+- **chat**: preserve topics across cold route sends, closes [#14284](https://github.com/lobehub/lobe-chat/issues/14284) ([b8fe675](https://github.com/lobehub/lobe-chat/commit/b8fe675))
+
+</details>
+
+<div align="right">
+
+[![](https://img.shields.io/badge/-BACK_TO_TOP-151515?style=flat-square)](#readme-top)
+
+</div>
+
+### [Version 2.1.54](https://github.com/lobehub/lobe-chat/compare/v2.1.53...v2.1.54)
+
+<sup>Released on **2026-04-27**</sup>
+
+#### 🐛 Bug Fixes
+
+- **misc**: clear stale topic when switching agents from a topic route.
+
+<br/>
+
+<details>
+<summary><kbd>Improvements and Fixes</kbd></summary>
+
+#### What's fixed
+
+- **misc**: clear stale topic when switching agents from a topic route, closes [#14231](https://github.com/lobehub/lobe-chat/issues/14231) ([deeb97a](https://github.com/lobehub/lobe-chat/commit/deeb97a))
+
+</details>
+
+<div align="right">
+
+[![](https://img.shields.io/badge/-BACK_TO_TOP-151515?style=flat-square)](#readme-top)
+
+</div>
+
 ### [Version 2.1.52](https://github.com/lobehub/lobe-chat/compare/v2.1.51...v2.1.52)
 
 <sup>Released on **2026-04-20**</sup>

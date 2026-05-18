@@ -23,16 +23,21 @@ import {
   type TieredPricingUnit,
 } from 'model-bank';
 import { type FC } from 'react';
-import { memo, useMemo, useState } from 'react';
+import { memo, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useEnabledChatModels } from '@/hooks/useEnabledChatModels';
-import { aiModelSelectors, useAiInfraStore } from '@/store/aiInfra';
+import { useGlobalStore } from '@/store/global';
+import type { ModelDetailPanelExpandedKey } from '@/store/global/initialState';
+import { systemStatusSelectors } from '@/store/global/selectors';
 import type { EnabledProviderWithModels } from '@/types/aiProvider';
 import { formatTokenNumber } from '@/utils/format';
-import { formatPriceByCurrency, getTextInputUnitRate, getTextOutputUnitRate } from '@/utils/index';
-
-import ControlsForm from './ControlsForm';
+import {
+  formatPriceByCurrency,
+  getOriginalUnitRateByName,
+  getTextInputUnitRate,
+  getTextOutputUnitRate,
+} from '@/utils/index';
 
 const styles = createStaticStyles(({ css, cssVar }) => ({
   actionText: css`
@@ -43,26 +48,20 @@ const styles = createStaticStyles(({ css, cssVar }) => ({
   container: css`
     padding-block-end: 8px;
   `,
-  extraControls: css`
-    padding: 8px;
-
-    .ant-form-item:first-child {
-      padding-block: 0 4px;
-    }
-
-    .ant-form-item:last-child {
-      padding-block: 4px 0;
-    }
-
-    .ant-divider {
-      display: none;
-    }
-  `,
   row: css`
     padding-block: 4px;
     padding-inline: 8px;
     font-size: 12px;
     color: ${cssVar.colorTextSecondary};
+  `,
+  originalPriceText: css`
+    color: ${cssVar.colorTextTertiary};
+    text-decoration: line-through;
+  `,
+  priceValue: css`
+    display: inline-flex;
+    gap: 4px;
+    align-items: baseline;
   `,
   titleText: css`
     font-size: 14px;
@@ -71,21 +70,36 @@ const styles = createStaticStyles(({ css, cssVar }) => ({
   `,
 }));
 
-const getPrice = (pricing: Pricing) => {
-  const inputRate = getTextInputUnitRate(pricing);
-  const outputRate = getTextOutputUnitRate(pricing);
-  const cachedInputRate = getCachedTextInputUnitRate(pricing);
+interface FormattedUnitPrice {
+  current: string;
+  original?: string;
+}
+
+const formatPricingRate = (rate: number | undefined, currency?: ModelPriceCurrency) =>
+  typeof rate === 'number' ? formatPriceByCurrency(rate, currency) : '0';
+
+const getFormattedUnitPrice = (pricing: Pricing, unitName: PricingUnitName): FormattedUnitPrice => {
+  const currency = pricing.currency as ModelPriceCurrency | undefined;
+  const currentRate =
+    unitName === 'textInput'
+      ? getTextInputUnitRate(pricing)
+      : unitName === 'textOutput'
+        ? getTextOutputUnitRate(pricing)
+        : getCachedTextInputUnitRate(pricing);
+  const originalRate = getOriginalUnitRateByName(pricing, unitName);
 
   return {
-    cachedInput: cachedInputRate
-      ? formatPriceByCurrency(cachedInputRate, pricing?.currency as ModelPriceCurrency)
-      : '0',
-    input: inputRate
-      ? formatPriceByCurrency(inputRate, pricing?.currency as ModelPriceCurrency)
-      : '0',
-    output: outputRate
-      ? formatPriceByCurrency(outputRate, pricing?.currency as ModelPriceCurrency)
-      : '0',
+    current: formatPricingRate(currentRate, currency),
+    original:
+      typeof originalRate === 'number' ? formatPriceByCurrency(originalRate, currency) : undefined,
+  };
+};
+
+const getPrice = (pricing: Pricing) => {
+  return {
+    cachedInput: getFormattedUnitPrice(pricing, 'textInput_cacheRead'),
+    input: getFormattedUnitPrice(pricing, 'textInput'),
+    output: getFormattedUnitPrice(pricing, 'textOutput'),
   };
 };
 
@@ -105,6 +119,7 @@ const UNIT_GROUP_MAP: Record<PricingUnitName, PricingGroup> = {
   textInput_cacheRead: 'text',
   textInput_cacheWrite: 'text',
   textOutput: 'text',
+  videoInput: 'video',
   videoGeneration: 'video',
 };
 
@@ -136,7 +151,8 @@ const UNIT_SORT_ORDER: Record<PricingUnitName, number> = {
   audioInput: 0,
   audioOutput: 1,
   audioInput_cacheRead: 2,
-  videoGeneration: 0,
+  videoInput: 0,
+  videoGeneration: 1,
 };
 
 const UNIT_LABEL_MAP: Record<string, string> = {
@@ -147,23 +163,50 @@ const UNIT_LABEL_MAP: Record<string, string> = {
   second: '/s',
 };
 
-const formatUnitRate = (unit: PricingUnit, currency?: ModelPriceCurrency): string => {
-  const unitLabel = UNIT_LABEL_MAP[unit.unit] || '';
+interface PriceValueProps {
+  prefix?: string;
+  price: FormattedUnitPrice;
+  suffix?: string;
+}
 
+const PriceValue: FC<PriceValueProps> = ({ price, prefix = '', suffix = '' }) => (
+  <span className={styles.priceValue}>
+    {price.original && (
+      <span className={styles.originalPriceText}>
+        {prefix}
+        {price.original}
+        {suffix}
+      </span>
+    )}
+    <span>
+      {prefix}
+      {price.current}
+      {suffix}
+    </span>
+  </span>
+);
+
+const formatUnitRate = (unit: PricingUnit, currency?: ModelPriceCurrency): FormattedUnitPrice => {
   if (unit.strategy === 'fixed') {
-    const price = formatPriceByCurrency((unit as FixedPricingUnit).rate, currency);
-    return `$${price}${unitLabel}`;
+    const fixedUnit = unit as FixedPricingUnit;
+    return {
+      current: formatPriceByCurrency(fixedUnit.rate, currency),
+      original:
+        typeof fixedUnit.originalRate === 'number' && fixedUnit.originalRate > fixedUnit.rate
+          ? formatPriceByCurrency(fixedUnit.originalRate, currency)
+          : undefined,
+    };
   }
 
   if (unit.strategy === 'tiered') {
     const tiers = (unit as TieredPricingUnit).tiers;
     if (tiers.length === 1) {
       const price = formatPriceByCurrency(tiers[0].rate, currency);
-      return `$${price}${unitLabel}`;
+      return { current: price };
     }
     const low = formatPriceByCurrency(tiers[0].rate, currency);
     const high = formatPriceByCurrency(tiers.at(-1)!.rate, currency);
-    return `$${low} ~ $${high}${unitLabel}`;
+    return { current: `${low} ~ $${high}` };
   }
 
   // lookup strategy
@@ -171,15 +214,15 @@ const formatUnitRate = (unit: PricingUnit, currency?: ModelPriceCurrency): strin
     const prices = Object.values(unit.lookup.prices);
     if (prices.length === 1) {
       const price = formatPriceByCurrency(prices[0], currency);
-      return `$${price}${unitLabel}`;
+      return { current: price };
     }
     const sorted = [...prices].sort((a, b) => a - b);
     const low = formatPriceByCurrency(sorted[0], currency);
     const high = formatPriceByCurrency(sorted.at(-1)!, currency);
-    return `$${low} ~ $${high}${unitLabel}`;
+    return { current: `${low} ~ $${high}` };
   }
 
-  return '-';
+  return { current: '-' };
 };
 
 interface PricingGroupData {
@@ -220,7 +263,6 @@ const ABILITY_CONFIG: AbilityItem[] = [
 export type PricingMode = 'image' | 'video';
 
 interface ModelDetailPanelProps {
-  defaultExpandedKeys?: string[];
   enabledList?: EnabledProviderWithModels[];
   model?: string;
   pricingMode?: PricingMode;
@@ -228,13 +270,7 @@ interface ModelDetailPanelProps {
 }
 
 const ModelDetailPanel: FC<ModelDetailPanelProps> = memo(
-  ({
-    defaultExpandedKeys = ['pricing'],
-    model: modelId,
-    provider,
-    enabledList: enabledListProp,
-    pricingMode,
-  }) => {
+  ({ model: modelId, provider, enabledList: enabledListProp, pricingMode }) => {
     const { t } = useTranslation('components');
 
     const enabledListFromHook = useEnabledChatModels();
@@ -245,22 +281,19 @@ const ModelDetailPanel: FC<ModelDetailPanelProps> = memo(
       return providerData?.children.find((m) => m.id === modelId);
     }, [enabledList, modelId, provider]);
 
-    const hasExtendParams = useAiInfraStore(
-      aiModelSelectors.isModelHasExtendParams(modelId ?? '', provider ?? ''),
-    );
+    const expandedKeys = useGlobalStore(systemStatusSelectors.modelDetailPanelExpandedKeys);
+    const updateExpandedKeys = useGlobalStore((s) => s.updateModelDetailPanelExpandedKeys);
 
-    const [expandedKeys, setExpandedKeys] = useState<string[]>(defaultExpandedKeys);
-
-    const hasPricing = !!model?.pricing;
-    const formatPrice = hasPricing ? getPrice(model!.pricing!) : null;
+    const pricing = model?.pricing;
+    const hasPricing = !!pricing;
+    const formatPrice = pricing ? getPrice(pricing) : null;
     const pricingGroups = useMemo(
-      () => (hasPricing ? groupPricingUnits(model!.pricing!.units) : []),
-      [hasPricing, model?.pricing],
+      () => (pricing ? groupPricingUnits(pricing.units) : []),
+      [pricing],
     );
 
     const approximatePriceLabel = useMemo(() => {
-      if (!hasPricing || !model?.pricing || !pricingMode) return null;
-      const pricing = model.pricing;
+      if (!pricing || !pricingMode) return null;
       const currency = pricing.currency as ModelPriceCurrency | undefined;
       if (pricingMode === 'image' && typeof pricing.approximatePricePerImage === 'number') {
         const amount = formatPriceByCurrency(pricing.approximatePricePerImage, currency);
@@ -277,7 +310,7 @@ const ModelDetailPanel: FC<ModelDetailPanelProps> = memo(
         });
       }
       return null;
-    }, [hasPricing, model?.pricing, pricingMode, t]);
+    }, [pricing, pricingMode, t]);
 
     if (!model) return null;
 
@@ -290,11 +323,11 @@ const ModelDetailPanel: FC<ModelDetailPanelProps> = memo(
     return (
       <Flexbox className={styles.container}>
         {/* Sections */}
-        {(hasPricing || hasContext || hasAbilities || (hasExtendParams && !pricingMode)) && (
+        {(hasPricing || hasContext || hasAbilities) && (
           <Accordion
             expandedKeys={expandedKeys}
             gap={8}
-            onExpandedChange={(keys) => setExpandedKeys(keys as string[])}
+            onExpandedChange={(keys) => updateExpandedKeys(keys as ModelDetailPanelExpandedKey[])}
           >
             {/* Context Length */}
             {hasContext && (
@@ -408,33 +441,33 @@ const ModelDetailPanel: FC<ModelDetailPanelProps> = memo(
                       {getCachedTextInputUnitRate(model.pricing!) && (
                         <Tooltip
                           title={t('ModelSwitchPanel.detail.pricing.cachedInput', {
-                            amount: formatPrice!.cachedInput,
+                            amount: formatPrice!.cachedInput.current,
                           })}
                         >
                           <Flexbox horizontal align={'center'} gap={2}>
                             <Icon icon={CircleFadingArrowUp} size={'small'} />
-                            {formatPrice!.cachedInput}
+                            <PriceValue price={formatPrice!.cachedInput} />
                           </Flexbox>
                         </Tooltip>
                       )}
                       <Tooltip
                         title={t('ModelSwitchPanel.detail.pricing.input', {
-                          amount: formatPrice!.input,
+                          amount: formatPrice!.input.current,
                         })}
                       >
                         <Flexbox horizontal align={'center'} gap={2}>
                           <Icon icon={ArrowUpFromDot} size={'small'} />
-                          {formatPrice!.input}
+                          <PriceValue price={formatPrice!.input} />
                         </Flexbox>
                       </Tooltip>
                       <Tooltip
                         title={t('ModelSwitchPanel.detail.pricing.output', {
-                          amount: formatPrice!.output,
+                          amount: formatPrice!.output.current,
                         })}
                       >
                         <Flexbox horizontal align={'center'} gap={2}>
                           <Icon icon={ArrowDownToDot} size={'small'} />
-                          {formatPrice!.output}
+                          <PriceValue price={formatPrice!.output} />
                         </Flexbox>
                       </Tooltip>
                     </Flexbox>
@@ -484,40 +517,19 @@ const ModelDetailPanel: FC<ModelDetailPanelProps> = memo(
                               {t(`ModelSwitchPanel.detail.pricing.unit.${unit.name}` as any)}
                             </span>
                           </Flexbox>
-                          <span>
-                            {formatUnitRate(unit, model.pricing?.currency as ModelPriceCurrency)}
-                          </span>
+                          <PriceValue
+                            prefix="$"
+                            suffix={UNIT_LABEL_MAP[unit.unit] || ''}
+                            price={formatUnitRate(
+                              unit,
+                              model.pricing?.currency as ModelPriceCurrency,
+                            )}
+                          />
                         </Flexbox>
                       ))}
                     </Flexbox>
                   ))}
                 </Flexbox>
-              </AccordionItem>
-            )}
-            {/* Model Config (agent chat only; requires ChatInput zustand provider) */}
-            {hasExtendParams && provider && !pricingMode && (
-              <AccordionItem
-                itemKey="config"
-                paddingBlock={6}
-                paddingInline={8}
-                title={
-                  <Flexbox horizontal align={'center'} gap={8}>
-                    <div
-                      style={{
-                        background: '#52c41a',
-                        borderRadius: 2,
-                        flexShrink: 0,
-                        height: 14,
-                        width: 3,
-                      }}
-                    />
-                    <span className={styles.titleText}>{t('ModelSwitchPanel.detail.config')}</span>
-                  </Flexbox>
-                }
-              >
-                <div className={styles.extraControls}>
-                  <ControlsForm model={model.id} provider={provider} />
-                </div>
               </AccordionItem>
             )}
           </Accordion>

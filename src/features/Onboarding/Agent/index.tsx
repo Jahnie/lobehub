@@ -1,11 +1,14 @@
 'use client';
 
 import { BUILTIN_AGENT_SLUGS } from '@lobechat/builtin-agents';
+import { setAgentTemplatesFetcher } from '@lobechat/builtin-tool-web-onboarding/agentMarketplace';
 import { SESSION_CHAT_TOPIC_URL } from '@lobechat/const';
+import type { SendMessageParams } from '@lobechat/types';
+import { RequestTrigger } from '@lobechat/types';
 import { Button, ErrorBoundary, Flexbox } from '@lobehub/ui';
 import { Drawer } from 'antd';
 import { History } from 'lucide-react';
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
@@ -13,18 +16,24 @@ import Loading from '@/components/Loading/BrandTextLoading';
 import ModeSwitch from '@/features/Onboarding/components/ModeSwitch';
 import { useClientDataSWR, useOnlyFetchOnceSWR } from '@/libs/swr';
 import OnboardingContainer from '@/routes/onboarding/_layout';
+import { fetchOnboardingAgentTemplates } from '@/services/agentMarketplace';
+import { messageService } from '@/services/message';
 import { topicService } from '@/services/topic';
 import { userService } from '@/services/user';
 import { useAgentStore } from '@/store/agent';
 import { builtinAgentSelectors } from '@/store/agent/selectors';
+import { useChatStore } from '@/store/chat';
+import { messageMapKey } from '@/store/chat/utils/messageMapKey';
 import { useUserStore } from '@/store/user';
 import { isDev } from '@/utils/env';
 
+import AnalyticsBridge from './AnalyticsBridge';
 import { resolveAgentOnboardingContext } from './context';
 import AgentOnboardingConversation from './Conversation';
 import AgentOnboardingDebugExportButton from './DebugExportButton';
 import HistoryPanel from './HistoryPanel';
 import OnboardingConversationProvider from './OnboardingConversationProvider';
+import { useOnboardingFollowUp } from './useOnboardingFollowUp';
 
 const CLASSIC_ONBOARDING_PATH = '/onboarding/classic';
 
@@ -59,6 +68,10 @@ const AgentOnboardingPage = memo(() => {
   const [historyDrawerOpen, setHistoryDrawerOpen] = useState(false);
 
   useInitBuiltinAgent(BUILTIN_AGENT_SLUGS.webOnboarding);
+
+  useEffect(() => {
+    setAgentTemplatesFetcher(fetchOnboardingAgentTemplates);
+  }, []);
 
   const { data: historyData, mutate: mutateHistoryTopics } = useClientDataSWR(
     isDev && onboardingAgentId ? ['agent-onboarding-history-topics', onboardingAgentId] : null,
@@ -100,6 +113,103 @@ const AgentOnboardingPage = memo(() => {
   const viewingHistoricalTopic =
     !!activeTopicId && !!effectiveTopicId && effectiveTopicId !== activeTopicId;
 
+  const onboardingChatKey = useMemo(
+    () => messageMapKey({ agentId: onboardingAgentId || '', topicId: effectiveTopicId }),
+    [onboardingAgentId, effectiveTopicId],
+  );
+  const messagesForOnboarding = useChatStore((s) => s.dbMessagesMap[onboardingChatKey]);
+  // No persisted welcome message: greeting = no messages yet.
+  const isGreeting = useMemo(
+    () => !messagesForOnboarding || messagesForOnboarding.length === 0,
+    [messagesForOnboarding],
+  );
+
+  const onboardingFollowUp = useOnboardingFollowUp({
+    enabled: !onboardingFinished && !viewingHistoricalTopic,
+    isGreeting,
+  });
+  const { onBeforeSendMessage, triggerExtract } = onboardingFollowUp;
+
+  const composedOnBeforeSendMessage = useCallback(
+    async (params: SendMessageParams) => {
+      params.metadata = { ...params.metadata, trigger: RequestTrigger.Onboarding };
+
+      const welcomeContent = t('agent.welcome');
+      await onBeforeSendMessage();
+
+      if (!onboardingAgentId || !effectiveTopicId) return;
+
+      const currentMessages = useChatStore.getState().dbMessagesMap[onboardingChatKey];
+      if (currentMessages && currentMessages.length > 0) return;
+
+      const result = await messageService.createMessage({
+        agentId: onboardingAgentId,
+        content: welcomeContent,
+        role: 'assistant',
+        topicId: effectiveTopicId,
+      });
+
+      // Sync the local cache so any subsequent reads see the welcome.
+      useChatStore.setState((state) => ({
+        dbMessagesMap: {
+          ...state.dbMessagesMap,
+          [onboardingChatKey]: result.messages,
+        },
+      }));
+
+      // Force the in-flight sendMessage to use the welcome as LLM history,
+      // since its `displayMessages` snapshot was captured before this hook ran.
+      params.messages = result.messages;
+    },
+    [effectiveTopicId, onBeforeSendMessage, onboardingAgentId, onboardingChatKey, t],
+  );
+
+  const syncOnboardingContext = useCallback(async () => {
+    const nextContext = await userService.getOrCreateOnboardingState();
+    await mutate(nextContext, { revalidate: false });
+    if (isDev && onboardingAgentId) await mutateHistoryTopics();
+
+    return nextContext;
+  }, [mutate, mutateHistoryTopics, onboardingAgentId]);
+
+  const handleAssistantTurnSettled = useCallback(async () => {
+    if (!effectiveTopicId) return;
+
+    const prevPhase = data?.context?.phase;
+    const prevFinishedAt = agentOnboarding?.finishedAt;
+
+    const extractPromise = triggerExtract(effectiveTopicId, prevPhase);
+
+    // Sync first to learn the next phase/finishedAt; only then decide whether
+    // the heavier user-store / builtin-agent refreshes are needed this turn.
+    const [nextContext] = await Promise.all([syncOnboardingContext(), extractPromise]);
+
+    const newPhase = nextContext?.context?.phase;
+    const newFinishedAt = nextContext?.agentOnboarding?.finishedAt;
+
+    const refreshes: Promise<unknown>[] = [];
+    if (newFinishedAt !== prevFinishedAt) refreshes.push(refreshUserState());
+    if (newPhase !== prevPhase) {
+      refreshes.push(refreshBuiltinAgent(BUILTIN_AGENT_SLUGS.webOnboarding));
+    }
+    if (refreshes.length > 0) await Promise.all(refreshes);
+  }, [
+    agentOnboarding?.finishedAt,
+    data?.context?.phase,
+    effectiveTopicId,
+    refreshBuiltinAgent,
+    refreshUserState,
+    syncOnboardingContext,
+    triggerExtract,
+  ]);
+  const assistantTurnSettledHandler =
+    onboardingFinished || viewingHistoricalTopic ? undefined : handleAssistantTurnSettled;
+
+  const conversationHooks = useMemo(
+    () => (onboardingFinished ? undefined : { onBeforeSendMessage: composedOnBeforeSendMessage }),
+    [onboardingFinished, composedOnBeforeSendMessage],
+  );
+
   if (error) {
     return (
       <OnboardingContainer>
@@ -111,14 +221,6 @@ const AgentOnboardingPage = memo(() => {
   if (isLoading || !activeTopicId || !onboardingAgentId || !effectiveTopicId) {
     return <Loading debugId="AgentOnboarding" />;
   }
-
-  const syncOnboardingContext = async () => {
-    const nextContext = await userService.getOrCreateOnboardingState();
-    await mutate(nextContext, { revalidate: false });
-    if (isDev && onboardingAgentId) await mutateHistoryTopics();
-
-    return nextContext;
-  };
 
   const handleReset = async () => {
     setIsResetting(true);
@@ -134,24 +236,13 @@ const AgentOnboardingPage = memo(() => {
 
   return (
     <OnboardingContainer>
+      <AnalyticsBridge />
       <Flexbox height={'100%'} width={'100%'}>
         <OnboardingConversationProvider
           agentId={onboardingAgentId}
           frozen={onboardingFinished}
+          hooks={conversationHooks}
           topicId={effectiveTopicId}
-          hooks={
-            onboardingFinished
-              ? undefined
-              : {
-                  onAfterSendMessage: async () => {
-                    await syncOnboardingContext();
-                    await Promise.all([
-                      refreshUserState(),
-                      refreshBuiltinAgent(BUILTIN_AGENT_SLUGS.webOnboarding),
-                    ]);
-                  },
-                }
-          }
         >
           <ErrorBoundary fallbackRender={() => null}>
             <AgentOnboardingConversation
@@ -164,6 +255,7 @@ const AgentOnboardingPage = memo(() => {
               showFeedback={!viewingHistoricalTopic}
               topicId={effectiveTopicId}
               onAfterWrapUp={syncOnboardingContext}
+              onAssistantTurnSettled={assistantTurnSettledHandler}
             />
           </ErrorBoundary>
         </OnboardingConversationProvider>
@@ -185,9 +277,9 @@ const AgentOnboardingPage = memo(() => {
           </Drawer>
         )}
       </Flexbox>
-      <ModeSwitch
-        actions={
-          isDev ? (
+      {isDev && (
+        <ModeSwitch
+          actions={
             <>
               <AgentOnboardingDebugExportButton
                 agentId={onboardingAgentId}
@@ -206,9 +298,9 @@ const AgentOnboardingPage = memo(() => {
                 {t('agent.modeSwitch.reset')}
               </Button>
             </>
-          ) : undefined
-        }
-      />
+          }
+        />
+      )}
     </OnboardingContainer>
   );
 });
