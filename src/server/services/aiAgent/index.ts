@@ -758,6 +758,10 @@ export class AiAgentService {
         runningOperation: {
           assistantMessageId: assistantMsg.id,
           completionWebhook: hooks?.find((h) => h.type === 'onComplete')?.webhook,
+          // Store deviceId + heteroType so interruptTask can cancel remote processes
+          ...(isRemoteHetero && remoteDeviceId
+            ? { deviceId: remoteDeviceId, heteroType }
+            : undefined),
           operationId,
           scope: appContext?.scope ?? undefined,
           threadId: appContext?.threadId ?? undefined,
@@ -2655,8 +2659,9 @@ export class AiAgentService {
   async interruptTask(params: {
     operationId?: string;
     threadId?: string;
+    topicId?: string;
   }): Promise<{ operationId?: string; success: boolean; threadId?: string }> {
-    const { threadId, operationId } = params;
+    const { threadId, operationId, topicId } = params;
 
     log('interruptTask: threadId=%s, operationId=%s', threadId, operationId);
 
@@ -2676,7 +2681,42 @@ export class AiAgentService {
       throw new Error('Operation ID not found');
     }
 
-    // 2. Interrupt the runtime operation first. Only mark the thread cancelled
+    // 2. Cancel remote hetero process (openclaw / hermes) if applicable.
+    // Check topic.metadata.runningOperation for device + heteroType info seeded by execAgent.
+    // This runs regardless of whether interruptOperation succeeds — the remote process
+    // is independent of the local operation registry.
+    if (topicId) {
+      const topic = await this.topicModel.findById(topicId);
+      const runningOp = (topic?.metadata as any)?.runningOperation as
+        | { deviceId?: string; heteroType?: string; operationId?: string }
+        | undefined;
+
+      if (
+        runningOp?.deviceId &&
+        (runningOp.heteroType === 'openclaw' || runningOp.heteroType === 'hermes')
+      ) {
+        const taskId = runningOp.operationId ?? resolvedOperationId;
+        log(
+          'interruptTask: cancelling remote hetero process heteroType=%s deviceId=%s taskId=%s',
+          runningOp.heteroType,
+          runningOp.deviceId,
+          taskId,
+        );
+        await deviceProxy
+          .executeToolCall(
+            { deviceId: runningOp.deviceId, userId: this.userId },
+            {
+              apiName: 'cancelHeteroTask',
+              arguments: JSON.stringify({ signal: 'SIGINT', taskId }),
+              identifier: 'cancelHeteroTask',
+            },
+            5_000,
+          )
+          .catch((err) => log('interruptTask: cancelHeteroTask dispatch failed: %O', err));
+      }
+    }
+
+    // 3. Interrupt the runtime operation first. Only mark the thread cancelled
     // after the runtime acknowledges the interrupt to avoid unlocking a live task.
     const interrupted = await this.agentRuntimeService.interruptOperation(resolvedOperationId);
     log(
@@ -2695,7 +2735,7 @@ export class AiAgentService {
       };
     }
 
-    // 3. Update Thread status to cancel
+    // 4. Update Thread status to cancel
     if (thread) {
       await this.threadModel.update(thread.id, {
         metadata: {
