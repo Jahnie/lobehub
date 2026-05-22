@@ -35,6 +35,7 @@ const AddButton = memo(() => {
 
   const dropdownItems = useMemo(() => {
     const heterogeneousItems = createHeterogeneousAgentMenuItems();
+    const platformItem = createPlatformAgentMenuItem();
 
     return [
       createAgentMenuItem(),
@@ -43,8 +44,7 @@ const AddButton = memo(() => {
       ...(heterogeneousItems.length > 0
         ? [{ type: 'divider' as const }, ...heterogeneousItems]
         : []),
-      { type: 'divider' as const },
-      createPlatformAgentMenuItem(),
+      ...(platformItem ? [{ type: 'divider' as const }, platformItem] : []),
     ];
   }, [
     createAgentMenuItem,
