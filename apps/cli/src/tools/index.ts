@@ -9,12 +9,14 @@ import {
   searchLocalFiles,
   writeLocalFile,
 } from './file';
+import { getAgentProfile } from './getAgentProfile';
 import { cancelHeteroTask, runHeteroTask } from './heteroTask';
 import { getCommandOutput, killCommand, runCommand } from './shell';
 
 const methodMap: Record<string, (args: any) => Promise<unknown>> = {
   cancelHeteroTask,
   checkPlatformCapability,
+  getAgentProfile,
   editFile: editLocalFile,
   getCommandOutput,
   globFiles: globLocalFiles,

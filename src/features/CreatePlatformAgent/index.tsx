@@ -14,6 +14,29 @@ import { useAgentStore } from '@/store/agent';
 import { useHomeStore } from '@/store/home';
 
 const useStyles = createStyles(({ css, token }) => ({
+  avatarPreview: css`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 48px;
+    height: 48px;
+    border-radius: ${token.borderRadiusLG}px;
+
+    font-size: 28px;
+    line-height: 1;
+
+    background: ${token.colorFillSecondary};
+  `,
+  capabilityTag: css`
+    flex-shrink: 0;
+    margin-inline-end: 0;
+  `,
+  deviceItem: css`
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  `,
   modal: css``,
   platformCard: css`
     cursor: pointer;
@@ -41,23 +64,14 @@ const useStyles = createStyles(({ css, token }) => ({
       background: ${token.colorPrimaryBg};
     }
   `,
-  platformName: css`
-    font-size: 15px;
-    font-weight: 500;
-    color: ${token.colorText};
-  `,
   platformDesc: css`
     font-size: 13px;
     color: ${token.colorTextSecondary};
   `,
-  deviceItem: css`
-    display: flex;
-    gap: 8px;
-    align-items: center;
-  `,
-  capabilityTag: css`
-    flex-shrink: 0;
-    margin-inline-end: 0;
+  platformName: css`
+    font-size: 15px;
+    font-weight: 500;
+    color: ${token.colorText};
   `,
 }));
 
@@ -80,6 +94,12 @@ const PLATFORM_DEFS: PlatformDef[] = [
   },
 ];
 
+interface AgentProfile {
+  avatar?: string;
+  description?: string;
+  title?: string;
+}
+
 interface CreatePlatformAgentModalProps {
   groupId?: string;
   onClose: () => void;
@@ -95,9 +115,12 @@ const CreatePlatformAgentModal = memo<CreatePlatformAgentModalProps>(
     const refreshAgentList = useHomeStore((s) => s.refreshAgentList);
 
     const [step, setStep] = useState(0);
-    const [platform, setPlatform] = useState<Platform>('openclaw');
+    const [platform, setPlatform] = useState<RemoteHeterogeneousAgentType>('openclaw');
     const [deviceId, setDeviceId] = useState<string | undefined>(undefined);
     const [agentName, setAgentName] = useState('');
+    const [agentDescription, setAgentDescription] = useState('');
+    const [agentProfile, setAgentProfile] = useState<AgentProfile | null>(null);
+    const [fetchingProfile, setFetchingProfile] = useState(false);
     const [creating, setCreating] = useState(false);
     const [capabilityResult, setCapabilityResult] = useState<
       { available: boolean; reason?: string; version?: string } | undefined
@@ -124,16 +147,23 @@ const CreatePlatformAgentModal = memo<CreatePlatformAgentModalProps>(
         setPlatform('openclaw');
         setDeviceId(undefined);
         setAgentName('');
+        setAgentDescription('');
+        setAgentProfile(null);
         setCapabilityResult(undefined);
       }
     }, [open]);
 
-    // Auto-set agent name from platform name on step 2→3
+    // Pre-fill name and description from fetched profile when entering step 2
     useEffect(() => {
-      if (step === 2 && !agentName) {
+      if (step !== 2) return;
+      if (agentProfile !== null) {
+        if (!agentName) setAgentName(agentProfile.title ?? selectedPlatformDef.name);
+        if (!agentDescription) setAgentDescription(agentProfile.description ?? '');
+      } else if (!fetchingProfile && !agentName) {
+        // Profile fetch failed or no profile — fall back to platform name
         setAgentName(selectedPlatformDef.name);
       }
-    }, [step, agentName, selectedPlatformDef.name]);
+    }, [step, agentProfile, fetchingProfile]);
 
     const checkCapability = useCallback(
       async (dId: string) => {
@@ -154,12 +184,32 @@ const CreatePlatformAgentModal = memo<CreatePlatformAgentModalProps>(
       [platform],
     );
 
+    const fetchProfile = useCallback(
+      async (dId: string) => {
+        setFetchingProfile(true);
+        setAgentProfile(null);
+        try {
+          const profile = await lambdaClient.device.getAgentProfile.query({
+            deviceId: dId,
+            platform,
+          });
+          setAgentProfile(profile);
+        } catch {
+          setAgentProfile({});
+        } finally {
+          setFetchingProfile(false);
+        }
+      },
+      [platform],
+    );
+
     const handleDeviceChange = useCallback(
       (dId: string) => {
         setDeviceId(dId);
         void checkCapability(dId);
+        void fetchProfile(dId);
       },
-      [checkCapability],
+      [checkCapability, fetchProfile],
     );
 
     const handleNext = useCallback(() => {
@@ -183,6 +233,8 @@ const CreatePlatformAgentModal = memo<CreatePlatformAgentModalProps>(
                 type: platform,
               },
             },
+            avatar: agentProfile?.avatar || undefined,
+            description: agentDescription.trim() || undefined,
             title,
           },
           groupId,
@@ -196,6 +248,8 @@ const CreatePlatformAgentModal = memo<CreatePlatformAgentModalProps>(
     }, [
       deviceId,
       agentName,
+      agentDescription,
+      agentProfile,
       platform,
       groupId,
       storeCreateAgent,
@@ -321,14 +375,31 @@ const CreatePlatformAgentModal = memo<CreatePlatformAgentModalProps>(
       }
 
       if (step === 2) {
+        const avatar = agentProfile?.avatar;
         return (
-          <Flexbox gap={8}>
+          <Flexbox gap={12}>
+            {avatar && (
+              <Flexbox horizontal align="center" gap={12}>
+                <div className={styles.avatarPreview}>{avatar}</div>
+              </Flexbox>
+            )}
             <Input
               maxLength={60}
-              placeholder={t('platformAgent.create.namePlaceholder')}
               value={agentName}
+              placeholder={
+                fetchingProfile
+                  ? t('platformAgent.create.fetchingProfile')
+                  : t('platformAgent.create.namePlaceholder')
+              }
               onChange={(e) => setAgentName(e.target.value)}
               onPressEnter={() => void handleCreate()}
+            />
+            <Input.TextArea
+              autoSize={{ maxRows: 4, minRows: 2 }}
+              maxLength={200}
+              placeholder={t('platformAgent.create.descriptionPlaceholder')}
+              value={agentDescription}
+              onChange={(e) => setAgentDescription(e.target.value)}
             />
           </Flexbox>
         );

@@ -4,6 +4,7 @@ import { authedProcedure, router } from '@/libs/trpc/lambda';
 import { deviceProxy } from '@/server/services/toolExecution/deviceProxy';
 
 const CAPABILITY_TIMEOUT_MS = 5_000;
+const PROFILE_TIMEOUT_MS = 5_000;
 
 const deviceProcedure = authedProcedure.use(async (opts) => {
   const { ctx } = opts;
@@ -49,6 +50,42 @@ export const deviceRouter = router({
         };
       } catch {
         return { available: false, reason: 'Invalid response from device' };
+      }
+    }),
+
+  /**
+   * Fetch the agent profile (title, description, avatar) from the platform
+   * installed on the given device. Used to pre-fill the creation modal.
+   * Returns an empty object on failure or when the platform has no profile.
+   */
+  getAgentProfile: deviceProcedure
+    .input(
+      z.object({
+        deviceId: z.string(),
+        platform: z.enum(['hermes', 'openclaw']),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const result = await deviceProxy.executeToolCall(
+        { deviceId: input.deviceId, userId: ctx.userId },
+        {
+          apiName: 'getAgentProfile',
+          arguments: JSON.stringify({ platform: input.platform }),
+          identifier: 'local',
+        },
+        PROFILE_TIMEOUT_MS,
+      );
+
+      if (!result.success) return {};
+
+      try {
+        return JSON.parse(result.content) as {
+          avatar?: string;
+          description?: string;
+          title?: string;
+        };
+      } catch {
+        return {};
       }
     }),
 
