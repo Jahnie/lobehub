@@ -354,6 +354,7 @@
   "platformAgent.create.back": "上一步",
   "platformAgent.create.checkFailed": "检测失败",
   "platformAgent.create.checking": "正在检测可用性...",
+  "platformAgent.create.comingSoon": "即将推出",
   "platformAgent.create.create": "创建 Agent",
   "platformAgent.create.creating": "创建中...",
   "platformAgent.create.desc.hermes": "在本地机器上运行 Hermes Agent",

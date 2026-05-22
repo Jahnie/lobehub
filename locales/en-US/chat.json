@@ -354,6 +354,7 @@
   "platformAgent.create.back": "Back",
   "platformAgent.create.checkFailed": "Check failed",
   "platformAgent.create.checking": "Checking availability...",
+  "platformAgent.create.comingSoon": "Coming Soon",
   "platformAgent.create.create": "Create Agent",
   "platformAgent.create.creating": "Creating...",
   "platformAgent.create.desc.hermes": "Run Hermes agents on your local machine",

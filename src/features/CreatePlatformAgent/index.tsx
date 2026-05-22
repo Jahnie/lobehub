@@ -61,6 +61,15 @@ const useStyles = createStyles(({ css, token }) => ({
       border-color: ${token.colorPrimary};
       background: ${token.colorPrimaryBg};
     }
+
+    &[data-disabled='true'] {
+      cursor: not-allowed;
+      opacity: 0.5;
+
+      &:hover {
+        border-color: ${token.colorBorderSecondary};
+      }
+    }
   `,
   platformDesc: css`
     font-size: 13px;
@@ -106,9 +115,14 @@ const CreatePlatformAgentModal = memo<CreatePlatformAgentModalProps>(
     >(undefined);
     const [checkingCapability, setCheckingCapability] = useState(false);
 
+    // Platforms that are not yet ready for production use.
+    // Remove a type from this set when the platform is fully supported.
+    const COMING_SOON_PLATFORMS = new Set<RemoteHeterogeneousAgentType>(['hermes']);
+
     // Derive platform display list from the registry — adding a new platform to
     // REMOTE_HETEROGENEOUS_AGENT_CONFIGS automatically includes it here.
     const platformDefs = REMOTE_HETEROGENEOUS_AGENT_CONFIGS.map((c) => ({
+      comingSoon: COMING_SOON_PLATFORMS.has(c.type),
       desc: t(`platformAgent.create.desc.${c.type}`),
       name: c.title,
       type: c.type,
@@ -291,18 +305,23 @@ const CreatePlatformAgentModal = memo<CreatePlatformAgentModalProps>(
             {platformDefs.map((def) => (
               <div
                 className={styles.platformCard}
-                data-selected={platform === def.type}
+                data-disabled={def.comingSoon}
+                data-selected={!def.comingSoon && platform === def.type}
                 key={def.type}
                 role="button"
-                tabIndex={0}
-                onClick={() => handlePlatformChange(def.type)}
+                tabIndex={def.comingSoon ? -1 : 0}
+                onClick={() => !def.comingSoon && handlePlatformChange(def.type)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') handlePlatformChange(def.type);
+                  if (!def.comingSoon && (e.key === 'Enter' || e.key === ' '))
+                    handlePlatformChange(def.type);
                 }}
               >
                 <Flexbox horizontal align="center" gap={8}>
                   <Icon icon={MonitorSmartphone} size={18} />
                   <span className={styles.platformName}>{def.name}</span>
+                  {def.comingSoon && (
+                    <Tag style={{ marginInlineEnd: 0 }}>{t('platformAgent.create.comingSoon')}</Tag>
+                  )}
                 </Flexbox>
                 <span className={styles.platformDesc}>{def.desc}</span>
               </div>

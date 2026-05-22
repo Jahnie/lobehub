@@ -373,6 +373,7 @@ export default {
   'platformAgent.create.available': 'Available',
   'platformAgent.create.notInstalled': '{{name}} not installed on this device',
   'platformAgent.create.checkFailed': 'Check failed',
+  'platformAgent.create.comingSoon': 'Coming Soon',
 
   // Platform agent device guard banner
   'platformAgent.deviceGuard.deviceOffline.title': 'Device not connected',
