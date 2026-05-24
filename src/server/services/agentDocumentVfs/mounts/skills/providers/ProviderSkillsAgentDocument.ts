@@ -1,6 +1,6 @@
 import { createMarkdownEditorSnapshot } from '@/server/services/agentDocuments/headlessEditor';
 import { AgentDocumentVfsError } from '@/server/services/agentDocumentVfs/errors';
-import { getSkillIndexBodyMarkdown } from '@/server/services/skillManagement/frontmatter';
+import { tryGetSkillIndexBodyMarkdown } from '@/server/services/skillManagement/frontmatter';
 
 import type {
   CreateSkillInput,
@@ -39,7 +39,7 @@ const DOCUMENT_SKILL_PROVIDER_CONFIGS = {
 } as const satisfies Record<'agent', ProviderSkillsAgentDocumentConfig>;
 
 const getSkillIndexEditorMarkdown = (content: string) =>
-  content.trimStart().startsWith('---') ? getSkillIndexBodyMarkdown(content) : content;
+  tryGetSkillIndexBodyMarkdown(content) ?? content;
 
 /**
  * Provides writable VFS operations for document-backed skills.

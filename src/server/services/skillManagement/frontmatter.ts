@@ -131,6 +131,15 @@ export const renderSkillIndexContent = (input: RenderSkillIndexContentInput): st
 export const getSkillIndexBodyMarkdown = (content: string): string =>
   parseMatter(content).body.replace(/^\r?\n/, '');
 
+export const tryGetSkillIndexBodyMarkdown = (content: string): string | undefined => {
+  const normalizedContent = content.trimStart();
+  const match = normalizedContent.match(FRONTMATTER_BLOCK_PATTERN);
+
+  if (!match) return undefined;
+
+  return normalizedContent.slice(match[0].length).replace(/^\r?\n/, '');
+};
+
 /**
  * Parses skill index frontmatter.
  *
