@@ -1,6 +1,7 @@
 import { t } from 'i18next';
 import { FilePenIcon } from 'lucide-react';
 
+import { useSharedPageProbe } from '@/hooks/useSharedPageProbe';
 import { type DynamicRouteMeta, routeMeta } from '@/spa/router/routeMeta';
 import { usePageStore } from '@/store/page';
 import { listSelectors } from '@/store/page/slices/list/selectors';
@@ -57,9 +58,12 @@ export const pageRouteMeta = routeMeta({
   useDynamicMeta: (params): DynamicRouteMeta => {
     const pageId = params.id ? getIdFromIdentifier(params.id, 'docs') : '';
     const document = usePageStore(listSelectors.getDocumentById(pageId));
+    // Fallback to the shared-page probe when the page store has no entry
+    // (guest mode: page list isn't fetched, but probe data is available).
+    const { data: probe } = useSharedPageProbe(pageId || undefined);
 
     return {
-      title: document?.title || undefined,
+      title: document?.title || probe?.document.title || undefined,
     };
   },
 });

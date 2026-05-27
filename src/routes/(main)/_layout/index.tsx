@@ -79,11 +79,16 @@ const Layout: FC = () => {
   //   and fall through to PageExplorer → PageAgentProvider → 401 suspend.
   // - PageLayout's Sidebar also fires protected queries (useFetchDocuments)
   //   that are irrelevant for guests.
+  // RouteMetaBridge is mounted here too so the browser tab title reflects
+  // the shared document name (pageRouteMeta falls back to probe data).
   if (isGuestPageRoute) {
     return (
-      <PublishedShell data={probe} error={probeError}>
-        {probe ? <ReadOnlyPageViewer data={probe} /> : null}
-      </PublishedShell>
+      <>
+        <RouteMetaBridge />
+        <PublishedShell data={probe} error={probeError}>
+          {probe ? <ReadOnlyPageViewer data={probe} /> : null}
+        </PublishedShell>
+      </>
     );
   }
 
