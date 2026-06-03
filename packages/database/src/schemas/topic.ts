@@ -40,7 +40,7 @@ export const topics = pgTable(
     description: text('description'),
     historySummary: text('history_summary'),
     metadata: jsonb('metadata').$type<ChatTopicMetadata | undefined>(),
-    trigger: text('trigger'), // 'cron' | 'chat' | 'api' | 'eval' - topic creation trigger source
+    trigger: text('trigger'), // 'cron' | 'chat' | 'api' | 'eval' | 'share' - topic creation trigger source
     mode: text('mode'), // 'temp' | 'test' | 'default' - topic usage scenario
     status: text('status', {
       enum: ['active', 'running', 'paused', 'waitingForHuman', 'failed', 'completed', 'archived'],
