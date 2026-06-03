@@ -6,7 +6,7 @@
   },
   "dialect": "postgresql",
   "enums": {},
-  "id": "3b8edc50-4449-419b-9380-b0e43c13f59e",
+  "id": "36b43dc5-2c55-4da3-8848-3d28a5420b06",
   "policies": {},
   "prevId": "85341c05-67d1-43f7-8550-790e8d025225",
   "roles": {},
@@ -3023,6 +3023,13 @@
           "type": "jsonb",
           "primaryKey": false,
           "notNull": false
+        },
+        "user_view_count": {
+          "name": "user_view_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
         },
         "accessed_at": {
           "name": "accessed_at",
@@ -15069,20 +15076,8 @@
           "primaryKey": false,
           "notNull": false
         },
-        "share_id": {
-          "name": "share_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "guest_token": {
-          "name": "guest_token",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "visitor_user_id": {
-          "name": "visitor_user_id",
+        "sender_id": {
+          "name": "sender_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -15293,26 +15288,11 @@
           "method": "btree",
           "with": {}
         },
-        "topics_share_id_idx": {
-          "name": "topics_share_id_idx",
+        "topics_sender_id_idx": {
+          "name": "topics_sender_id_idx",
           "columns": [
             {
-              "expression": "share_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "topics_guest_token_idx": {
-          "name": "topics_guest_token_idx",
-          "columns": [
-            {
-              "expression": "guest_token",
+              "expression": "sender_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -15374,15 +15354,6 @@
           "columnsFrom": ["user_id"],
           "columnsTo": ["id"],
           "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "topics_visitor_user_id_users_id_fk": {
-          "name": "topics_visitor_user_id_users_id_fk",
-          "tableFrom": "topics",
-          "tableTo": "users",
-          "columnsFrom": ["visitor_user_id"],
-          "columnsTo": ["id"],
-          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },

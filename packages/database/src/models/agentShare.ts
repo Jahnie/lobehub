@@ -1,5 +1,5 @@
 import { TRPCError } from '@trpc/server';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 
 import { agents, agentShares } from '../schemas';
 import type { AgentShareConfig, AgentShareItem } from '../schemas/agentShare';
@@ -92,6 +92,7 @@ export class AgentShareModel {
         creatorId: agents.userId,
         shareConfig: agentShares.shareConfig,
         shareId: agentShares.id,
+        userViewCount: agentShares.userViewCount,
         visibility: agentShares.visibility,
       })
       .from(agentShares)
@@ -118,5 +119,12 @@ export class AgentShareModel {
     }
 
     return share;
+  };
+
+  static incrementUserViewCount = async (db: LobeChatDatabase, shareId: string) => {
+    await db
+      .update(agentShares)
+      .set({ userViewCount: sql`${agentShares.userViewCount} + 1` })
+      .where(eq(agentShares.id, shareId));
   };
 }

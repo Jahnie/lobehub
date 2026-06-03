@@ -1,4 +1,4 @@
-import { index, jsonb, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
+import { index, integer, jsonb, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
 
 import { createNanoId } from '../utils/idGenerator';
 import { timestamps } from './_helpers';
@@ -13,7 +13,7 @@ export interface AgentShareConfig {
   };
   guestEnabled?: boolean;
   maxGuestTopics?: number;
-  tipSplitRatio?: number;
+  // tipSplitRatio is platform-controlled, not configurable by the creator
 }
 
 export const agentShares = pgTable(
@@ -30,6 +30,9 @@ export const agentShares = pgTable(
     visibility: text('visibility').default('private').notNull(), // 'private' | 'link'
 
     shareConfig: jsonb('share_config').$type<AgentShareConfig>(),
+
+    /** Unique visitor count — incremented by the application layer on each new visitor session. */
+    userViewCount: integer('user_view_count').default(0).notNull(),
 
     ...timestamps,
   },
