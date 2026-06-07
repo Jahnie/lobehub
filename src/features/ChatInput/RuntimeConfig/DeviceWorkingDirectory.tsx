@@ -1,17 +1,20 @@
 'use client';
 
+import { isDesktop } from '@lobechat/const';
 import { Flexbox, Icon, Input, Popover, Tooltip } from '@lobehub/ui';
 import { confirmModal } from '@lobehub/ui/base-ui';
 import { createStaticStyles, cssVar, cx } from 'antd-style';
-import { CheckIcon, ChevronDownIcon, FolderIcon } from 'lucide-react';
+import { CheckIcon, ChevronDownIcon, FolderIcon, FolderOpenIcon } from 'lucide-react';
 import { memo, useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { lambdaQuery } from '@/libs/trpc/client';
+import { electronSystemService } from '@/services/electron/system';
 import { useAgentStore } from '@/store/agent';
 import { agentByIdSelectors } from '@/store/agent/selectors';
 import { useChatStore } from '@/store/chat';
 import { topicSelectors } from '@/store/chat/selectors';
+import { useElectronStore } from '@/store/electron';
 
 import type { WorkingDirEntry } from './deviceCwd';
 import { renderDirIcon } from './dirIcon';
@@ -35,6 +38,23 @@ const styles = createStaticStyles(({ css }) => ({
     transition: background 0.2s;
 
     &:hover {
+      background: ${cssVar.colorFillTertiary};
+    }
+  `,
+  chooseFolderItem: css`
+    cursor: pointer;
+
+    padding-block: 8px;
+    padding-inline: 8px;
+    border-radius: ${cssVar.borderRadius};
+
+    font-size: 13px;
+    color: ${cssVar.colorTextSecondary};
+
+    transition: background-color 0.2s;
+
+    &:hover {
+      color: ${cssVar.colorText};
       background: ${cssVar.colorFillTertiary};
     }
   `,
@@ -105,6 +125,14 @@ const DeviceWorkingDirectory = memo<DeviceWorkingDirectoryProps>(({ agentId }) =
   const agencyConfig = useAgentStore(agentByIdSelectors.getAgencyConfigById(agentId));
   const boundDeviceId = agencyConfig?.boundDeviceId;
 
+  // When the bound device is this very machine, its filesystem *is* browsable —
+  // offer the native folder dialog instead of a manual path field.
+  const useFetchDeviceInfo = useElectronStore((s) => s.useFetchGatewayDeviceInfo);
+  const gatewayDeviceInfo = useElectronStore((s) => s.gatewayDeviceInfo);
+  useFetchDeviceInfo();
+  const isLocalDevice =
+    isDesktop && !!boundDeviceId && gatewayDeviceInfo?.deviceId === boundDeviceId;
+
   const { data: devices } = lambdaQuery.device.listDevices.useQuery(undefined, {
     staleTime: 30_000,
   });
@@ -167,6 +195,14 @@ const DeviceWorkingDirectory = memo<DeviceWorkingDirectoryProps>(({ agentId }) =
     ],
   );
 
+  const handleChooseFolder = useCallback(async () => {
+    const result = await electronSystemService.selectFolder({
+      defaultPath: effectiveDir || undefined,
+      title: t('localSystem.workingDirectory.selectFolder'),
+    });
+    if (result) await commitDir({ path: result.path, repoType: result.repoType });
+  }, [effectiveDir, t, commitDir]);
+
   const content = (
     <Flexbox gap={4} style={{ minWidth: 280 }}>
       <div className={styles.sectionTitle}>{t('localSystem.workingDirectory.recent')}</div>
@@ -208,12 +244,27 @@ const DeviceWorkingDirectory = memo<DeviceWorkingDirectoryProps>(({ agentId }) =
           })
         )}
       </div>
-      <Input
-        placeholder={t('localSystem.workingDirectory.placeholder')}
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
-        onPressEnter={() => void commitDir({ path: input })}
-      />
+      {isLocalDevice ? (
+        // This machine is the run target — browse with the native dialog instead
+        // of typing a path.
+        <Flexbox
+          horizontal
+          align={'center'}
+          className={styles.chooseFolderItem}
+          gap={8}
+          onClick={handleChooseFolder}
+        >
+          <Icon icon={FolderOpenIcon} size={14} />
+          <span>{t('localSystem.workingDirectory.chooseDifferentFolder')}</span>
+        </Flexbox>
+      ) : (
+        <Input
+          placeholder={t('localSystem.workingDirectory.placeholder')}
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onPressEnter={() => void commitDir({ path: input })}
+        />
+      )}
     </Flexbox>
   );
 
