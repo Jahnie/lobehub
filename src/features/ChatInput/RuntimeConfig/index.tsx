@@ -1,24 +1,13 @@
 import { isDesktop } from '@lobechat/const';
 import { type RuntimeEnvMode } from '@lobechat/types';
-import { Github } from '@lobehub/icons';
 import { Flexbox, Icon, Popover, Skeleton, Tooltip } from '@lobehub/ui';
 import { createStaticStyles, cssVar, cx } from 'antd-style';
-import {
-  ChevronDownIcon,
-  CloudIcon,
-  FolderIcon,
-  GitBranchIcon,
-  LaptopIcon,
-  MonitorOffIcon,
-  SquircleDashed,
-} from 'lucide-react';
-import { memo, type ReactNode, useCallback, useMemo, useState } from 'react';
+import { ChevronDownIcon, CloudIcon, LaptopIcon, MonitorOffIcon } from 'lucide-react';
+import { memo, useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useAgentStore } from '@/store/agent';
 import { agentByIdSelectors, chatConfigByIdSelectors } from '@/store/agent/selectors';
-import { useChatStore } from '@/store/chat';
-import { topicSelectors } from '@/store/chat/selectors';
 import { useUserStore } from '@/store/user';
 import { labPreferSelectors } from '@/store/user/selectors';
 
@@ -28,11 +17,9 @@ import { useUpdateAgentConfig } from '../hooks/useUpdateAgentConfig';
 import { useChatInputStore } from '../store';
 import ApprovalMode from './ApprovalMode';
 import CloudRepoSwitcher from './CloudRepoSwitcher';
-import GitStatus from './GitStatus';
 import HeteroDeviceSwitcher from './HeteroDeviceSwitcher';
 import ModeSelector from './ModeSelector';
-import { useRepoType } from './useRepoType';
-import WorkingDirectory from './WorkingDirectory';
+import WorkingDirectorySection from './WorkingDirectorySection';
 
 const MODE_ICONS: Record<RuntimeEnvMode, typeof LaptopIcon> = {
   cloud: CloudIcon,
@@ -105,10 +92,8 @@ const styles = createStaticStyles(({ css }) => ({
 
 const RuntimeConfig = memo(() => {
   const { t } = useTranslation('chat');
-  const { t: tPlugin } = useTranslation('plugin');
   const agentId = useAgentId();
   const { updateAgentChatConfig } = useUpdateAgentConfig();
-  const [dirPopoverOpen, setDirPopoverOpen] = useState(false);
   const [modePopoverOpen, setModePopoverOpen] = useState(false);
   const showContextWindow = useChatInputStore((s) =>
     s.rightActions.flat().includes('contextWindow'),
@@ -125,20 +110,12 @@ const RuntimeConfig = memo(() => {
     labPreferSelectors.enableExecutionDeviceSwitcher,
   );
 
-  const topicWorkingDirectory = useChatStore(topicSelectors.currentTopicWorkingDirectory);
-  const agentWorkingDirectory = useAgentStore((s) =>
-    agentId ? agentByIdSelectors.getAgentWorkingDirectoryById(agentId)(s) : undefined,
+  const agencyConfig = useAgentStore((s) =>
+    agentId ? agentByIdSelectors.getAgencyConfigById(agentId)(s) : undefined,
   );
-  const effectiveWorkingDirectory = topicWorkingDirectory || agentWorkingDirectory;
-
-  const repoType = useRepoType(effectiveWorkingDirectory);
-
-  const dirIconNode = useMemo((): ReactNode => {
-    if (!effectiveWorkingDirectory) return <Icon icon={SquircleDashed} size={14} />;
-    if (repoType === 'github') return <Github size={14} />;
-    if (repoType === 'git') return <Icon icon={GitBranchIcon} size={14} />;
-    return <Icon icon={FolderIcon} size={14} />;
-  }, [effectiveWorkingDirectory, repoType]);
+  // Runs dispatched to a remote device get the device-scoped working directory
+  // picker instead of the local one (handled inside WorkingDirectorySection).
+  const isDeviceMode = agencyConfig?.executionTarget === 'device' && !!agencyConfig?.boundDeviceId;
 
   const switchMode = useCallback(
     async (mode: RuntimeEnvMode) => {
@@ -165,10 +142,6 @@ const RuntimeConfig = memo(() => {
 
   const ModeIcon = MODE_ICONS[runtimeMode];
   const modeLabel = t(`runtimeEnv.mode.${runtimeMode}`);
-
-  const displayName = effectiveWorkingDirectory
-    ? effectiveWorkingDirectory.split('/').findLast(Boolean) || effectiveWorkingDirectory
-    : tPlugin('localSystem.workingDirectory.notSet');
 
   const modes: { desc: string; icon: typeof LaptopIcon; label: string; mode: RuntimeEnvMode }[] = [
     // Local mode is desktop-only
@@ -234,15 +207,11 @@ const RuntimeConfig = memo(() => {
     </div>
   );
 
-  const dirButton = (
-    <div className={styles.button}>
-      {dirIconNode}
-      <span>{displayName}</span>
-      <Icon icon={ChevronDownIcon} size={12} />
-    </div>
-  );
-
   const rightContent = () => {
+    // Remote device runs get the device-scoped picker, regardless of runtimeMode
+    // (which HeteroDeviceSwitcher sets to 'none' when a device is selected).
+    if (isDeviceMode) return <WorkingDirectorySection agentId={agentId} />;
+
     // Web + heterogeneous agent always shows the cloud repo switcher,
     // regardless of the stored runtimeMode (which may be 'local' from desktop).
     if (!isDesktop && isHeterogeneous && agentId) {
@@ -250,39 +219,7 @@ const RuntimeConfig = memo(() => {
     }
 
     // Desktop local mode: show working directory picker
-    if (runtimeMode === 'local') {
-      return (
-        <>
-          <Popover
-            open={dirPopoverOpen}
-            placement="bottomLeft"
-            styles={{ content: { padding: 4 } }}
-            trigger="click"
-            content={
-              <WorkingDirectory agentId={agentId} onClose={() => setDirPopoverOpen(false)} />
-            }
-            onOpenChange={setDirPopoverOpen}
-          >
-            <div>
-              {dirPopoverOpen ? (
-                dirButton
-              ) : (
-                <Tooltip
-                  title={
-                    effectiveWorkingDirectory || tPlugin('localSystem.workingDirectory.notSet')
-                  }
-                >
-                  {dirButton}
-                </Tooltip>
-              )}
-            </div>
-          </Popover>
-          {effectiveWorkingDirectory && repoType && (
-            <GitStatus isGithub={repoType === 'github'} path={effectiveWorkingDirectory} />
-          )}
-        </>
-      );
-    }
+    if (runtimeMode === 'local') return <WorkingDirectorySection agentId={agentId} />;
 
     return null;
   };
