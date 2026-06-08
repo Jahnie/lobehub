@@ -36,7 +36,7 @@ vi.mock('./Files', () => ({
   ),
 }));
 
-vi.mock('@/features/ChatInput/RuntimeConfig/useRepoType', () => ({
+vi.mock('@/features/ChatInput/ControlBar/useRepoType', () => ({
   useRepoType: (path?: string) => (path ? mocks.repoType : undefined),
 }));
 

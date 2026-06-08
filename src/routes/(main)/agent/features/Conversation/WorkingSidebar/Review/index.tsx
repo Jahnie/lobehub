@@ -22,7 +22,7 @@ import { Fragment, memo, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import NeuralNetworkLoading from '@/components/NeuralNetworkLoading';
-import { useGitInfo } from '@/features/ChatInput/RuntimeConfig/useGitInfo';
+import { useGitInfo } from '@/features/ChatInput/ControlBar/useGitInfo';
 import { useLocalStorageState } from '@/hooks/useLocalStorageState';
 
 import FileRow from './FileRow';

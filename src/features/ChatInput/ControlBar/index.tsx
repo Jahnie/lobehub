@@ -19,7 +19,7 @@ const styles = createStaticStyles(({ css }) => ({
   `,
 }));
 
-const RuntimeConfig = memo(() => {
+const ControlBar = memo(() => {
   const agentId = useAgentId();
   const showContextWindow = useChatInputStore((s) =>
     s.rightActions.flat().includes('contextWindow'),
@@ -56,6 +56,6 @@ const RuntimeConfig = memo(() => {
   );
 });
 
-RuntimeConfig.displayName = 'RuntimeConfig';
+ControlBar.displayName = 'ControlBar';
 
-export default RuntimeConfig;
+export default ControlBar;
