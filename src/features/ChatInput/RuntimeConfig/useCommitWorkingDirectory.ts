@@ -8,9 +8,8 @@ import { agentByIdSelectors } from '@/store/agent/selectors';
 import { useChatStore } from '@/store/chat';
 import { topicSelectors } from '@/store/chat/selectors';
 import { useDeviceStore } from '@/store/device';
+import { type WorkingDirEntry } from '@/store/device';
 import { useElectronStore } from '@/store/electron';
-
-import { type WorkingDirEntry } from './deviceCwd';
 
 /**
  * Unified working-directory writes, shared by the directory picker for both

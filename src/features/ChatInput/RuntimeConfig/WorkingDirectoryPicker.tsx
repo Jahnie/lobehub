@@ -16,11 +16,12 @@ import { useAgentStore } from '@/store/agent';
 import { agentByIdSelectors } from '@/store/agent/selectors';
 import { useChatStore } from '@/store/chat';
 import { topicSelectors } from '@/store/chat/selectors';
-import { deviceSelectors, useDeviceStore, useMigrateDeviceRecents } from '@/store/device';
+import { deviceSelectors, useDeviceStore } from '@/store/device';
 import { useElectronStore } from '@/store/electron';
 
 import { renderDirIcon } from './dirIcon';
 import { useCommitWorkingDirectory } from './useCommitWorkingDirectory';
+import { useMigrateDeviceRecents } from './useMigrateDeviceRecents';
 
 const styles = createStaticStyles(({ css }) => ({
   button: css`

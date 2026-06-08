@@ -1,3 +1,3 @@
+export * from './deviceCwd';
 export * from './selectors';
 export * from './store';
-export * from './useMigrateDeviceRecents';

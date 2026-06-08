@@ -1,16 +1,15 @@
 import { type SWRResponse } from 'swr';
 
+import { mutate, useClientDataSWR } from '@/libs/swr';
+import { lambdaClient } from '@/libs/trpc/client';
+import { type StoreSetter } from '@/store/types';
+
 import {
   nextWorkingDirs,
   removeWorkingDir,
   WORKING_DIRS_MAX,
   type WorkingDirEntry,
-} from '@/features/ChatInput/RuntimeConfig/deviceCwd';
-import { getRecentDirs, RECENT_DIRS_KEY } from '@/features/ChatInput/RuntimeConfig/recentDirs';
-import { mutate, useClientDataSWR } from '@/libs/swr';
-import { lambdaClient } from '@/libs/trpc/client';
-import { type StoreSetter } from '@/store/types';
-
+} from './deviceCwd';
 import { type DeviceListItem } from './initialState';
 import { type DeviceStore } from './store';
 
@@ -76,19 +75,21 @@ export class DeviceActionImpl {
   };
 
   /**
-   * One-time migration of the legacy localStorage recent dirs into the current
-   * machine's `device.workingDirs` (the unified recent source). Existing device
-   * entries win on conflict; localStorage is cleared only after a successful
-   * persist, so a failed run retries next time. No-op once localStorage is empty.
+   * Merge legacy recent dirs (read from localStorage by the caller — the store
+   * stays out of feature-layer storage) into a device's `device.workingDirs`.
+   * Existing device entries win on conflict. Rejects if the persist fails so the
+   * caller can keep localStorage for a retry; resolves once safely merged.
    */
-  migrateLocalRecentsToDevice = async (deviceId: string): Promise<void> => {
-    const legacy = getRecentDirs();
-    if (legacy.length === 0) return;
+  migrateLocalRecentsToDevice = async (
+    deviceId: string,
+    legacyEntries: WorkingDirEntry[],
+  ): Promise<void> => {
+    if (legacyEntries.length === 0) return;
 
     const device = this.#get().devices.find((d) => d.deviceId === deviceId);
     const existing = device?.workingDirs ?? [];
     const existingPaths = new Set(existing.map((d) => d.path));
-    const merged = [...existing, ...legacy.filter((d) => !existingPaths.has(d.path))].slice(
+    const merged = [...existing, ...legacyEntries.filter((d) => !existingPaths.has(d.path))].slice(
       0,
       WORKING_DIRS_MAX,
     );
@@ -105,8 +106,6 @@ export class DeviceActionImpl {
 
     try {
       await lambdaClient.device.updateDevice.mutate({ deviceId, workingDirs: merged });
-      // Clear only after the server accepted the merge (failure → retry next load).
-      localStorage.removeItem(RECENT_DIRS_KEY);
     } finally {
       await mutate(FETCH_DEVICES_KEY);
     }
