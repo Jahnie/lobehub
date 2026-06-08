@@ -2,6 +2,7 @@ import { type SWRResponse } from 'swr';
 
 import {
   nextWorkingDirs,
+  removeWorkingDir,
   type WorkingDirEntry,
 } from '@/features/ChatInput/RuntimeConfig/deviceCwd';
 import { mutate, useClientDataSWR } from '@/libs/swr';
@@ -68,6 +69,29 @@ export class DeviceActionImpl {
       });
     } finally {
       // Re-fetch the truth (self-corrects a failed optimistic write).
+      await mutate(FETCH_DEVICES_KEY);
+    }
+  };
+
+  /** Remove a path from a device's `workingDirs` recent list (optimistic). */
+  removeDeviceWorkingDir = async (deviceId: string, path: string): Promise<void> => {
+    const device = this.#get().devices.find((d) => d.deviceId === deviceId);
+    if (!device) return;
+    const updated = removeWorkingDir(path, device.workingDirs ?? []);
+
+    this.#set(
+      {
+        devices: this.#get().devices.map((d) =>
+          d.deviceId === deviceId ? { ...d, workingDirs: updated } : d,
+        ) as DeviceListItem[],
+      },
+      false,
+      'removeDeviceWorkingDir',
+    );
+
+    try {
+      await lambdaClient.device.updateDevice.mutate({ deviceId, workingDirs: updated });
+    } finally {
       await mutate(FETCH_DEVICES_KEY);
     }
   };

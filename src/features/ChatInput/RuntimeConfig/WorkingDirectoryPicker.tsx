@@ -2,23 +2,25 @@
 
 import { isDesktop } from '@lobechat/const';
 import { Flexbox, Icon, Input, Popover, Tooltip } from '@lobehub/ui';
-import { confirmModal } from '@lobehub/ui/base-ui';
 import { createStaticStyles, cssVar, cx } from 'antd-style';
-import { CheckIcon, ChevronDownIcon, FolderIcon, FolderOpenIcon } from 'lucide-react';
-import { memo, useCallback, useMemo, useState } from 'react';
+import { CheckIcon, ChevronDownIcon, FolderIcon, FolderOpenIcon, XIcon } from 'lucide-react';
+import { memo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { lambdaQuery } from '@/libs/trpc/client';
+import {
+  resolveAgentWorkingDirectory,
+  resolveTargetDeviceId,
+} from '@/helpers/agentWorkingDirectory';
 import { electronSystemService } from '@/services/electron/system';
 import { useAgentStore } from '@/store/agent';
 import { agentByIdSelectors } from '@/store/agent/selectors';
 import { useChatStore } from '@/store/chat';
 import { topicSelectors } from '@/store/chat/selectors';
+import { deviceSelectors, useDeviceStore } from '@/store/device';
 import { useElectronStore } from '@/store/electron';
 
-import type { WorkingDirEntry } from './deviceCwd';
 import { renderDirIcon } from './dirIcon';
-import { useUpdateDeviceCwd } from './useUpdateDeviceCwd';
+import { useCommitWorkingDirectory } from './useCommitWorkingDirectory';
 
 const styles = createStaticStyles(({ css }) => ({
   button: css`
@@ -58,6 +60,22 @@ const styles = createStaticStyles(({ css }) => ({
       background: ${cssVar.colorFillTertiary};
     }
   `,
+  clearText: css`
+    cursor: pointer;
+
+    padding-block: 6px 2px;
+    padding-inline: 8px;
+
+    font-size: 11px;
+    font-weight: 500;
+    color: ${cssVar.colorTextTertiary};
+
+    transition: color 0.2s;
+
+    &:hover {
+      color: ${cssVar.colorText};
+    }
+  `,
   dirItem: css`
     cursor: pointer;
 
@@ -87,9 +105,30 @@ const styles = createStaticStyles(({ css }) => ({
     text-overflow: ellipsis;
     white-space: nowrap;
   `,
+  removeBtn: css`
+    cursor: pointer;
+
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+
+    width: 20px;
+    height: 20px;
+    border-radius: ${cssVar.borderRadius};
+
+    color: ${cssVar.colorTextQuaternary};
+
+    transition: all 0.2s;
+
+    &:hover {
+      color: ${cssVar.colorTextSecondary};
+      background: ${cssVar.colorFillSecondary};
+    }
+  `,
   scrollContainer: css`
     overflow-y: auto;
-    max-height: 320px;
+    max-height: 360px;
   `,
   sectionTitle: css`
     padding-block: 6px 2px;
@@ -98,116 +137,87 @@ const styles = createStaticStyles(({ css }) => ({
     font-size: 11px;
     font-weight: 500;
     color: ${cssVar.colorTextQuaternary};
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
   `,
 }));
 
 const getDirName = (path: string) => path.split('/').findLast(Boolean) || path;
 
-interface DeviceWorkingDirectoryProps {
+interface WorkingDirectoryPickerProps {
   agentId: string;
 }
 
 /**
- * Working-directory picker for runs dispatched to a remote device
- * (`executionTarget='device'`). Unlike the desktop picker, the device's
- * filesystem isn't browsable from here, so the cwd comes from the device's
- * `workingDirs` (persisted via the registry) plus a manual path field. A pick is
- * pinned to the active topic (override) and persisted back to the device
- * (`defaultCwd` + `workingDirs`) so it seeds future topics and the recent list.
+ * Unified working-directory picker for both local and remote runs. Recents come
+ * from the target device's `device.workingDirs`; picks write through the unified
+ * `useCommitWorkingDirectory` (topic override / agent per-device choice). When
+ * the target is this machine, the native folder dialog is offered; a true remote
+ * device falls back to manual path entry (its filesystem isn't browsable here).
  */
-const DeviceWorkingDirectory = memo<DeviceWorkingDirectoryProps>(({ agentId }) => {
-  const { t } = useTranslation(['plugin', 'chat']);
+const WorkingDirectoryPicker = memo<WorkingDirectoryPickerProps>(({ agentId }) => {
+  const { t } = useTranslation('plugin');
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
 
+  // Populate the device store (SWR dedupes across callers).
+  useDeviceStore((s) => s.useFetchDevices)();
+
   const agencyConfig = useAgentStore(agentByIdSelectors.getAgencyConfigById(agentId));
-  const boundDeviceId = agencyConfig?.boundDeviceId;
+  const currentDeviceId = useElectronStore((s) => s.gatewayDeviceInfo?.deviceId);
+  const targetDeviceId = resolveTargetDeviceId(agencyConfig, currentDeviceId);
+  // The local machine's filesystem is browsable; a remote device's is not.
+  const isLocalDevice = isDesktop && !!targetDeviceId && targetDeviceId === currentDeviceId;
 
-  // When the bound device is this very machine, its filesystem *is* browsable —
-  // offer the native folder dialog instead of a manual path field.
-  const useFetchDeviceInfo = useElectronStore((s) => s.useFetchGatewayDeviceInfo);
-  const gatewayDeviceInfo = useElectronStore((s) => s.gatewayDeviceInfo);
-  useFetchDeviceInfo();
-  const isLocalDevice =
-    isDesktop && !!boundDeviceId && gatewayDeviceInfo?.deviceId === boundDeviceId;
-
-  const { data: devices } = lambdaQuery.device.listDevices.useQuery(undefined, {
-    staleTime: 30_000,
-  });
-  const device = useMemo(
-    () => devices?.find((d) => d.deviceId === boundDeviceId),
-    [devices, boundDeviceId],
-  );
-  const workingDirs = device?.workingDirs ?? [];
-
+  const recents = useDeviceStore(deviceSelectors.getDeviceWorkingDirs(targetDeviceId));
+  const deviceDefaultCwd = useDeviceStore(deviceSelectors.getDeviceDefaultCwd(targetDeviceId));
   const topicWorkingDirectory = useChatStore(topicSelectors.currentTopicWorkingDirectory);
-  // Mirror the server's resolution (topic override > device.defaultCwd).
-  const effectiveDir = topicWorkingDirectory || device?.defaultCwd || '';
-
-  const activeTopicId = useChatStore((s) => s.activeTopicId);
-  const activeTopic = useChatStore((s) =>
-    s.activeTopicId ? topicSelectors.getTopicById(s.activeTopicId)(s) : undefined,
-  );
-  const updateTopicMetadata = useChatStore((s) => s.updateTopicMetadata);
-  const updateDeviceCwd = useUpdateDeviceCwd();
-
-  const commitDir = useCallback(
-    async (entry: WorkingDirEntry) => {
-      const newPath = entry.path.trim();
-      if (!newPath || !boundDeviceId) return;
-
-      const commit = async () => {
-        // Pin this topic to the chosen cwd (override wins server-side), and
-        // persist to the device so defaultCwd + workingDirs stay in sync.
-        if (activeTopicId) await updateTopicMetadata(activeTopicId, { workingDirectory: newPath });
-        await updateDeviceCwd(boundDeviceId, { ...entry, path: newPath }, workingDirs);
-        setInput('');
-        setOpen(false);
-      };
-
-      // Changing a topic's cwd invalidates its pinned CC session (sessions are
-      // keyed per-cwd), so warn before the implicit reset — same as the local picker.
-      const priorSessionId = activeTopic?.metadata?.heteroSessionId;
-      const priorCwd = activeTopic?.metadata?.workingDirectory;
-      if (priorSessionId && priorCwd && priorCwd !== newPath) {
-        confirmModal({
-          cancelText: t('heteroAgent.switchCwd.cancel', { ns: 'chat' }),
-          content: t('heteroAgent.switchCwd.content', { ns: 'chat' }),
-          okText: t('heteroAgent.switchCwd.ok', { ns: 'chat' }),
-          onOk: commit,
-          title: t('heteroAgent.switchCwd.title', { ns: 'chat' }),
-        });
-        return;
-      }
-
-      await commit();
-    },
-    [
-      activeTopicId,
-      activeTopic,
-      boundDeviceId,
-      workingDirs,
-      t,
-      updateDeviceCwd,
-      updateTopicMetadata,
-    ],
+  const legacyAgentWorkingDirectory = useAgentStore(
+    (s) => s.localAgentWorkingDirectoryMap[agentId],
   );
 
-  const handleChooseFolder = useCallback(async () => {
+  // The explicitly-selected cwd (no home fallback) — drives the active check and
+  // the Clear affordance.
+  const selectedDir = resolveAgentWorkingDirectory({
+    agencyConfig,
+    currentDeviceId,
+    deviceDefaultCwd,
+    legacyAgentWorkingDirectory,
+    topicWorkingDirectory,
+  });
+
+  const { clear, commit } = useCommitWorkingDirectory(agentId);
+  const removeDeviceWorkingDir = useDeviceStore((s) => s.removeDeviceWorkingDir);
+
+  const pick = async (entry: { path: string; repoType?: 'git' | 'github' }) => {
+    await commit(entry);
+    setInput('');
+    setOpen(false);
+  };
+
+  const handleChooseFolder = async () => {
     const result = await electronSystemService.selectFolder({
-      defaultPath: effectiveDir || undefined,
+      defaultPath: selectedDir || undefined,
       title: t('localSystem.workingDirectory.selectFolder'),
     });
-    if (result) await commitDir({ path: result.path, repoType: result.repoType });
-  }, [effectiveDir, t, commitDir]);
+    if (result) await pick({ path: result.path, repoType: result.repoType });
+  };
+
+  const handleRemoveRecent = (e: React.MouseEvent, path: string) => {
+    e.stopPropagation();
+    if (targetDeviceId) void removeDeviceWorkingDir(targetDeviceId, path);
+  };
 
   const content = (
     <Flexbox gap={4} style={{ minWidth: 280 }}>
-      <div className={styles.sectionTitle}>{t('localSystem.workingDirectory.recent')}</div>
+      <Flexbox horizontal align={'center'} distribution={'space-between'}>
+        <div className={styles.sectionTitle}>{t('localSystem.workingDirectory.recent')}</div>
+        {selectedDir && (
+          <div className={styles.clearText} onClick={() => void clear().then(() => setOpen(false))}>
+            {t('localSystem.workingDirectory.clear')}
+          </div>
+        )}
+      </Flexbox>
       <div className={styles.scrollContainer}>
-        {workingDirs.length === 0 ? (
+        {recents.length === 0 ? (
           <Flexbox
             align={'center'}
             justify={'center'}
@@ -216,8 +226,8 @@ const DeviceWorkingDirectory = memo<DeviceWorkingDirectoryProps>(({ agentId }) =
             {t('localSystem.workingDirectory.noRecent')}
           </Flexbox>
         ) : (
-          workingDirs.map((entry) => {
-            const isActive = entry.path === effectiveDir;
+          recents.map((entry) => {
+            const isActive = entry.path === selectedDir;
             return (
               <Flexbox
                 horizontal
@@ -225,7 +235,7 @@ const DeviceWorkingDirectory = memo<DeviceWorkingDirectoryProps>(({ agentId }) =
                 className={cx(styles.dirItem, isActive && styles.dirItemActive)}
                 gap={8}
                 key={entry.path}
-                onClick={() => void commitDir(entry)}
+                onClick={() => void pick(entry)}
               >
                 {renderDirIcon(entry.repoType)}
                 <Flexbox flex={1} style={{ minWidth: 0 }}>
@@ -238,15 +248,22 @@ const DeviceWorkingDirectory = memo<DeviceWorkingDirectoryProps>(({ agentId }) =
                     size={16}
                     style={{ color: cssVar.colorSuccess, flex: 'none' }}
                   />
-                ) : null}
+                ) : (
+                  <div
+                    className={styles.removeBtn}
+                    title={t('localSystem.workingDirectory.removeRecent')}
+                    onClick={(e) => handleRemoveRecent(e, entry.path)}
+                  >
+                    <Icon icon={XIcon} size={12} />
+                  </div>
+                )}
               </Flexbox>
             );
           })
         )}
       </div>
+
       {isLocalDevice ? (
-        // This machine is the run target — browse with the native dialog instead
-        // of typing a path.
         <Flexbox
           horizontal
           align={'center'}
@@ -262,19 +279,23 @@ const DeviceWorkingDirectory = memo<DeviceWorkingDirectoryProps>(({ agentId }) =
           placeholder={t('localSystem.workingDirectory.placeholder')}
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onPressEnter={() => void commitDir({ path: input })}
+          onPressEnter={() => void pick({ path: input })}
         />
       )}
     </Flexbox>
   );
 
-  const displayName = effectiveDir
-    ? getDirName(effectiveDir)
+  const displayName = selectedDir
+    ? getDirName(selectedDir)
     : t('localSystem.workingDirectory.notSet');
 
   const trigger = (
     <div className={styles.button}>
-      <Icon icon={FolderIcon} size={14} />
+      {selectedDir ? (
+        renderDirIcon(recents.find((r) => r.path === selectedDir)?.repoType)
+      ) : (
+        <Icon icon={FolderIcon} size={14} />
+      )}
       <span>{displayName}</span>
       <Icon icon={ChevronDownIcon} size={12} />
     </div>
@@ -293,7 +314,7 @@ const DeviceWorkingDirectory = memo<DeviceWorkingDirectoryProps>(({ agentId }) =
         {open ? (
           trigger
         ) : (
-          <Tooltip title={effectiveDir || t('localSystem.workingDirectory.notSet')}>
+          <Tooltip title={selectedDir || t('localSystem.workingDirectory.notSet')}>
             {trigger}
           </Tooltip>
         )}
@@ -302,6 +323,6 @@ const DeviceWorkingDirectory = memo<DeviceWorkingDirectoryProps>(({ agentId }) =
   );
 });
 
-DeviceWorkingDirectory.displayName = 'DeviceWorkingDirectory';
+WorkingDirectoryPicker.displayName = 'WorkingDirectoryPicker';
 
-export default DeviceWorkingDirectory;
+export default WorkingDirectoryPicker;
