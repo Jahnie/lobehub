@@ -1,10 +1,11 @@
 #!/bin/sh
 set -e
 
-REPO="lobehub/lobe-chat"
+# 从本仓库的 Release 下载预编译二进制
+REPO="lobehub/lobehub"
 BIN_NAME="lh"
 
-# Detect OS
+# 检测操作系统
 case "$(uname -s)" in
   Linux)  OS="linux" ;;
   Darwin) OS="macos" ;;
@@ -14,7 +15,7 @@ case "$(uname -s)" in
     ;;
 esac
 
-# Detect architecture
+# 检测 CPU 架构
 case "$(uname -m)" in
   x86_64)        ARCH="x64" ;;
   aarch64|arm64) ARCH="arm64" ;;
@@ -44,7 +45,7 @@ fi
 
 chmod +x "$TMP"
 
-# Choose install directory: prefer /usr/local/bin, fall back to ~/.local/bin
+# 选择安装目录：优先 /usr/local/bin，否则退回 ~/.local/bin
 USE_SUDO=0
 if [ -w "/usr/local/bin" ]; then
   INSTALL_DIR="/usr/local/bin"
@@ -59,7 +60,7 @@ else
   printf '  export PATH="%s:$PATH"\n' "$INSTALL_DIR"
 fi
 
-# Install binary and create symlinks
+# 安装二进制并创建 lobe / lobehub 别名
 if [ "$USE_SUDO" = "1" ]; then
   sudo cp "$TMP" "${INSTALL_DIR}/${BIN_NAME}"
   sudo chmod +x "${INSTALL_DIR}/${BIN_NAME}"

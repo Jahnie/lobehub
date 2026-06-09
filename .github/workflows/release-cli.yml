@@ -18,7 +18,7 @@ jobs:
   build:
     name: Build ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
-    # skip pre-release tags (containing '-') on auto-trigger; always run on workflow_dispatch
+    # 跳过预发布 tag（含 "-"）；workflow_dispatch 始终执行
     if: ${{ github.event_name == 'workflow_dispatch' || !contains(github.ref_name, '-') }}
     strategy:
       fail-fast: false
@@ -26,8 +26,16 @@ jobs:
         include:
           - os: ubuntu-latest
             target: lobe-linux-x64
+            bun_target: bun-linux-x64
+          - os: ubuntu-latest
+            target: lobe-linux-arm64
+            bun_target: bun-linux-arm64
+          - os: macos-latest
+            target: lobe-macos-x64
+            bun_target: bun-darwin-x64
           - os: macos-latest
             target: lobe-macos-arm64
+            bun_target: bun-darwin-arm64
 
     steps:
       - uses: actions/checkout@v4
@@ -44,7 +52,11 @@ jobs:
       - name: Build binary
         run: |
           mkdir -p dist
-          bun build ./apps/cli/src/index.ts --compile --minify --outfile ./dist/${{ matrix.target }}
+          bun build ./apps/cli/src/index.ts \
+            --compile \
+            --minify \
+            --target ${{ matrix.bun_target }} \
+            --outfile ./dist/${{ matrix.target }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -71,5 +83,7 @@ jobs:
           tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
           files: |
             ./dist/lobe-linux-x64/lobe-linux-x64
+            ./dist/lobe-linux-arm64/lobe-linux-arm64
+            ./dist/lobe-macos-x64/lobe-macos-x64
             ./dist/lobe-macos-arm64/lobe-macos-arm64
             ./apps/cli/install.sh
