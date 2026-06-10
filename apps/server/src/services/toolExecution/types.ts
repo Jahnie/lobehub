@@ -38,6 +38,8 @@ export interface ServerSubAgentRunResult {
   subOperationId?: string;
   /** The isolation thread holding the sub-agent's full message trace. */
   threadId: string;
+  /** Parent conversation tool message placeholder that receives the sub-agent result. */
+  toolMessageId?: string;
 }
 
 /**

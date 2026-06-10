@@ -353,9 +353,23 @@ const buildServerSubAgentRunner = (
         started: true,
         subOperationId: result?.operationId,
         threadId: result?.threadId ?? '',
+        toolMessageId: placeholder.id,
       };
     },
   };
+};
+
+const getDeferredToolMessageId = (result: ToolExecutionResultResponse): string | undefined => {
+  const toolMessageId = result.state?.toolMessageId;
+  return typeof toolMessageId === 'string' ? toolMessageId : undefined;
+};
+
+const withDeferredToolResultMessageId = (
+  tool: ChatToolPayload,
+  result: ToolExecutionResultResponse,
+): ChatToolPayload => {
+  const resultMessageId = getDeferredToolMessageId(result);
+  return resultMessageId ? { ...tool, result_msg_id: resultMessageId } : tool;
 };
 
 const shouldRetryLLM = (kind: LLMErrorKind, attempt: number, maxRetries: number) =>
@@ -1708,6 +1722,7 @@ export const createRuntimeExecutors = (
               newState.messages.push({
                 content,
                 id: assistantMessageItem.id,
+                parentId,
                 reasoning: persistedReasoning,
                 role: 'assistant',
                 tool_calls: stateToolCalls,
@@ -2467,7 +2482,9 @@ export const createRuntimeExecutors = (
             interruptedAt: new Date().toISOString(),
             reason: 'async_tool',
           };
-          newState.pendingToolsCalling = [chatToolPayload];
+          newState.pendingToolsCalling = [
+            withDeferredToolResultMessageId(chatToolPayload, execution.result),
+          ];
           return {
             events: [
               {
@@ -2769,9 +2786,11 @@ export const createRuntimeExecutors = (
    */
   call_tools_batch: async (instruction, state) => {
     const { payload } = instruction as Extract<AgentInstruction, { type: 'call_tools_batch' }>;
-    const { parentMessageId, toolsCalling } = payload;
+    const { parentMessageId } = payload;
+    const toolsCalling = payload.toolsCalling as ChatToolPayload[];
     const { operationId, stepIndex, streamManager, toolExecutionService } = ctx;
     const events: AgentEvent[] = [];
+    const toolCallOrder = new Map(toolsCalling.map((tool, index) => [tool.id, index] as const));
 
     const operationLogId = `${operationId}:${stepIndex}`;
     log(
@@ -3022,7 +3041,9 @@ export const createRuntimeExecutors = (
             // the batch parks for it after all server tools settle.
             if (execution.result.deferred) {
               log(`[${operationLogId}] Tool ${toolName} deferred; will park after batch`);
-              deferredTools.push(chatToolPayload);
+              deferredTools.push(
+                withDeferredToolResultMessageId(chatToolPayload, execution.result),
+              );
               batchExecuteToolSpan.setAttributes(
                 buildExecuteToolResultAttributes({ attempts: execution.attempts, success: true }),
               );
@@ -3287,7 +3308,9 @@ export const createRuntimeExecutors = (
     // Park if any tools still owe an out-of-band result: client tools (run on
     // the client) and/or deferred async tools (e.g. sub-agents). The operation
     // resumes once every pending tool's result is delivered.
-    const pendingTools = [...deferredTools, ...clientTools];
+    const pendingTools = [...deferredTools, ...clientTools].sort(
+      (a, b) => (toolCallOrder.get(a.id) ?? 0) - (toolCallOrder.get(b.id) ?? 0),
+    );
     if (pendingTools.length > 0) {
       // Prefer the async-tool reason when any deferred tool is present; the
       // individual pending payloads still carry their own identity for the

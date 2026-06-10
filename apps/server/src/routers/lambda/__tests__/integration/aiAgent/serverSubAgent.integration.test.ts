@@ -11,8 +11,8 @@
  *      sub-agent's answer and resumes the parent.
  *   5. The parent op runs one more LLM step and reaches `done`.
  */
-import { type LobeChatDatabase } from '@lobechat/database';
-import { agentOperations, agents, messages } from '@lobechat/database/schemas';
+import type { LobeChatDatabase } from '@lobechat/database';
+import { agentOperations, agents, messagePlugins, messages } from '@lobechat/database/schemas';
 import { getTestDB } from '@lobechat/database/test-utils';
 import { eq } from 'drizzle-orm';
 import OpenAI from 'openai';
@@ -45,6 +45,7 @@ let testAgentId: string;
 
 const SUB_AGENT_ANSWER = 'The sub-agent researched the topic and found the answer is 42.';
 const PARENT_FINAL = 'Based on the sub-agent result, the final answer is 42.';
+const BATCH_PARENT_FINAL = 'All three sub-agent results are ready.';
 
 const createTestContext = () => ({ jwtPayload: { userId }, userId });
 
@@ -109,6 +110,81 @@ const createCallSubAgentResponse = () => {
             type: 'message',
           },
           fnCall,
+        ],
+        status: 'completed',
+        usage: { input_tokens: 30, output_tokens: 20, total_tokens: 50 },
+      },
+      type: 'response.completed',
+    },
+  ];
+
+  return createMockResponsesStream(chunks);
+};
+
+/** Mock parent first step: three parallel `callSubAgent` tool calls. */
+const createBatchCallSubAgentResponse = () => {
+  const responseId = `resp_parent_batch_${Date.now()}`;
+  const msgItemId = `msg_parent_batch_${Date.now()}`;
+  const calls = [1, 2, 3].map((index) => ({
+    arguments: JSON.stringify({
+      description: `Research part ${index}`,
+      instruction: `Find answer part ${index}.`,
+    }),
+    call_id: `call_subagent_${index}`,
+    name: 'lobe-agent____callSubAgent',
+    type: 'function_call',
+  }));
+
+  const chunks = [
+    {
+      response: {
+        created_at: Math.floor(Date.now() / 1000),
+        id: responseId,
+        model: 'gpt-5-pro',
+        object: 'response',
+        output: [],
+        status: 'in_progress',
+      },
+      type: 'response.created',
+    },
+    {
+      item: {
+        content: [],
+        id: msgItemId,
+        role: 'assistant',
+        status: 'in_progress',
+        type: 'message',
+      },
+      output_index: 0,
+      type: 'response.output_item.added',
+    },
+    {
+      content_index: 0,
+      delta: 'I will delegate these three parts.',
+      item_id: msgItemId,
+      output_index: 0,
+      type: 'response.output_text.delta',
+    },
+    ...calls.map((item, index) => ({
+      item,
+      output_index: index + 1,
+      type: 'response.output_item.added',
+    })),
+    {
+      response: {
+        created_at: Math.floor(Date.now() / 1000),
+        id: responseId,
+        model: 'gpt-5-pro',
+        object: 'response',
+        output: [
+          {
+            content: [{ text: 'I will delegate these three parts.', type: 'output_text' }],
+            id: msgItemId,
+            role: 'assistant',
+            status: 'completed',
+            type: 'message',
+          },
+          ...calls,
         ],
         status: 'completed',
         usage: { input_tokens: 30, output_tokens: 20, total_tokens: 50 },
@@ -244,5 +320,77 @@ describe('Server callSubAgent suspend/resume', () => {
       (m) => m.role === 'tool' && m.content === SUB_AGENT_ANSWER,
     );
     expect(subAgentToolMessage).toBeDefined();
+  });
+
+  it('keeps the resumed parent assistant chained to the last sub-agent tool result', async () => {
+    // 1: parent emits three callSubAgent tool calls
+    // 2-4: three sub-ops answer
+    // 5: parent resumes with the final answer
+    let callCount = 0;
+    mockResponsesCreate.mockImplementation(() => {
+      callCount++;
+      if (callCount === 1) return Promise.resolve(createBatchCallSubAgentResponse() as any);
+      if (callCount <= 4) {
+        return Promise.resolve(createFinalTextResponse(`Sub-agent answer ${callCount - 1}`) as any);
+      }
+      return Promise.resolve(createFinalTextResponse(BATCH_PARENT_FINAL) as any);
+    });
+
+    const caller = aiAgentRouter.createCaller(createTestContext());
+
+    const createResult = await caller.execAgent({
+      agentId: testAgentId,
+      prompt: 'Please research three parts in parallel and summarize.',
+    });
+    expect(createResult.success).toBe(true);
+
+    const finalState = await waitForOperationComplete(
+      inMemoryAgentStateManager,
+      createResult.operationId,
+      { maxWaitTime: 20_000 },
+    );
+
+    expect(finalState.status).toBe('done');
+    expect(mockResponsesCreate).toHaveBeenCalledTimes(5);
+
+    const allMessages = await serverDB.select().from(messages).where(eq(messages.userId, userId));
+    const allPlugins = await serverDB
+      .select()
+      .from(messagePlugins)
+      .where(eq(messagePlugins.userId, userId));
+
+    const parentMessages = allMessages.filter(
+      (m) => m.agentId === testAgentId && !m.threadId && m.topicId === createResult.topicId,
+    );
+
+    const delegatingAssistant = parentMessages.find(
+      (m) => m.role === 'assistant' && Array.isArray(m.tools) && m.tools.length === 3,
+    );
+    expect(delegatingAssistant).toBeDefined();
+
+    const declaredTools = delegatingAssistant!.tools as Array<{ id: string }>;
+    const lastDeclaredToolId = declaredTools.at(-1)?.id;
+    expect(lastDeclaredToolId).toBe('call_subagent_3');
+
+    const pluginByToolCallId = new Map(
+      allPlugins.map((plugin) => [plugin.toolCallId, plugin.id] as const),
+    );
+    const toolMessageIds = declaredTools.map((tool) => pluginByToolCallId.get(tool.id));
+    expect(toolMessageIds.every(Boolean)).toBe(true);
+
+    const expectedLastToolMessageId = pluginByToolCallId.get(lastDeclaredToolId!);
+    expect(expectedLastToolMessageId).toBeDefined();
+
+    const finalAssistant = parentMessages.find(
+      (m) => m.role === 'assistant' && m.content === BATCH_PARENT_FINAL,
+    );
+    expect(finalAssistant).toBeDefined();
+    expect(toolMessageIds).toContain(finalAssistant!.parentId);
+
+    const finalStateAssistant = [...(finalState.messages ?? [])]
+      .reverse()
+      .find((m) => m.role === 'assistant' && m.content === BATCH_PARENT_FINAL);
+    expect(finalStateAssistant).toBeDefined();
+    expect(finalStateAssistant!.parentId).toBe(expectedLastToolMessageId);
   });
 });

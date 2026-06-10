@@ -151,7 +151,7 @@ class LobeAgentExecutionRuntime {
       return buildError('instruction is required.', 'INVALID_ARGUMENTS');
     }
 
-    const { started, threadId, subOperationId } = await ctx.subAgent.run({
+    const { started, threadId, subOperationId, toolMessageId } = await ctx.subAgent.run({
       description,
       instruction,
       timeout,
@@ -169,7 +169,7 @@ class LobeAgentExecutionRuntime {
       // No tool_result yet — the bridge fills this in when the sub-op completes.
       content: '',
       deferred: true,
-      state: { status: 'pending', subOperationId, threadId },
+      state: { status: 'pending', subOperationId, threadId, toolMessageId },
       success: true,
     };
   };
