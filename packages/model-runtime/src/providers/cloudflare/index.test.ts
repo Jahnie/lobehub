@@ -558,5 +558,38 @@ describe('LobeCloudflareAI', () => {
 
       expect(result).toHaveLength(2);
     });
+
+    it('should throw ProviderBizError when API returns null result', async () => {
+      // Arrange
+      const instance = new LobeCloudflareAI({
+        apiKey: 'test_api_key',
+        baseURLOrAccountID: accountID,
+      });
+
+      vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            errors: [{ code: 10000, message: 'Authentication error' }],
+            result: null,
+            success: false,
+          }),
+          { status: 401 },
+        ),
+      );
+
+      // Act & Assert
+      await expect(instance.models()).rejects.toEqual({
+        endpoint: expect.not.stringContaining(accountID),
+        error: {
+          errors: [{ code: 10000, message: 'Authentication error' }],
+          result: null,
+          status: 401,
+          success: false,
+        },
+        errorType: bizErrorType,
+        message: 'Authentication error',
+        provider,
+      });
+    });
   });
 });

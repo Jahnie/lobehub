@@ -153,6 +153,7 @@ export class LobeCloudflareAI implements LobeRuntimeAI {
     const { LOBE_DEFAULT_MODEL_LIST } = await import('model-bank');
 
     const url = `${DEFAULT_BASE_URL_PREFIX}/client/v4/accounts/${this.accountID}/ai/models/search`;
+    const desensitizedEndpoint = desensitizeCloudflareUrl(url);
     const response = await fetch(url, {
       headers: {
         'Authorization': `Bearer ${this.apiKey}`,
@@ -160,9 +161,35 @@ export class LobeCloudflareAI implements LobeRuntimeAI {
       },
       method: 'GET',
     });
-    const json = await response.json();
+    let json: unknown;
+    try {
+      json = await response.json();
+    } catch (error) {
+      throw AgentRuntimeError.chat({
+        endpoint: desensitizedEndpoint,
+        error: error instanceof Error ? { message: error.message, name: error.name } : { error },
+        errorType: AgentRuntimeErrorType.ProviderBizError,
+        message: 'Cloudflare models API returned invalid JSON',
+        provider: ModelProvider.Cloudflare,
+      });
+    }
 
-    const modelList: CloudflareModelCard[] = json.result;
+    const modelList =
+      typeof json === 'object' && json !== null ? (json as { result?: unknown }).result : undefined;
+
+    if (!response.ok || !Array.isArray(modelList)) {
+      throw AgentRuntimeError.chat({
+        endpoint: desensitizedEndpoint,
+        error:
+          json && typeof json === 'object'
+            ? { ...(json as Record<string, unknown>), status: response.status }
+            : { body: json, status: response.status },
+        errorType: AgentRuntimeErrorType.ProviderBizError,
+        message:
+          extractProviderErrorMessage(json) || 'Cloudflare models API returned an invalid response',
+        provider: ModelProvider.Cloudflare,
+      });
+    }
 
     return modelList
       .map((model) => {
