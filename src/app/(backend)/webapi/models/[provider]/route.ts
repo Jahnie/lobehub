@@ -19,17 +19,31 @@ const SENSITIVE_ERROR_FIELDS = new Set([
   'bearer',
   'config',
   'credential',
+  'credentials',
   'headers',
   'key',
   'ocp-apim-subscription-key',
   'options',
   'password',
+  'private-key',
+  'private_key',
   'request',
   'secret',
   'stack',
   'token',
   'x-api-key',
 ]);
+
+const SENSITIVE_ERROR_FIELD_PATTERNS = [
+  /accesskey/,
+  /apikey/,
+  /authorization/,
+  /credential/,
+  /password/,
+  /privatekey/,
+  /secret/,
+  /token/,
+];
 
 const ERROR_FIELDS_TO_PRESERVE = [
   'code',
@@ -41,7 +55,17 @@ const ERROR_FIELDS_TO_PRESERVE = [
   'type',
 ] as const;
 
-const isSensitiveField = (key: string) => SENSITIVE_ERROR_FIELDS.has(key.toLowerCase());
+const normalizeErrorFieldKey = (key: string) => key.toLowerCase().replaceAll(/[-_\s]/g, '');
+
+const isSensitiveField = (key: string) => {
+  const normalizedKey = normalizeErrorFieldKey(key);
+
+  return (
+    SENSITIVE_ERROR_FIELDS.has(key.toLowerCase()) ||
+    SENSITIVE_ERROR_FIELDS.has(normalizedKey) ||
+    SENSITIVE_ERROR_FIELD_PATTERNS.some((pattern) => pattern.test(normalizedKey))
+  );
+};
 
 const toJsonSafeValue = (value: unknown, seen = new WeakSet<object>(), depth = 0): unknown => {
   if (value === null) return null;
@@ -131,7 +155,7 @@ export const GET = checkAuth(async (req, { params, userId, serverDB }) => {
 
     return NextResponse.json(normalizeModelListResponse(list));
   } catch (e) {
-    const errorPayload = isRecord(e) ? (e as ChatCompletionErrorPayload) : undefined;
+    const errorPayload = isRecord(e) ? (e as Partial<ChatCompletionErrorPayload>) : undefined;
     const errorType = errorPayload?.errorType || AgentRuntimeErrorType.ProviderBizError;
     const errorContent = errorPayload?.error;
     const message = errorPayload?.message;

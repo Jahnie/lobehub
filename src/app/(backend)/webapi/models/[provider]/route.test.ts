@@ -177,11 +177,19 @@ describe('GET handler', () => {
       const mockParams = Promise.resolve({ provider: 'xai' });
 
       const error = new Error('not authorized') as Error & {
+        body?: Record<string, unknown>;
+        credentials?: Record<string, string>;
         headers?: Record<string, string>;
         status?: number;
       };
       error.status = 403;
       error.headers = { authorization: 'Bearer secret' };
+      error.credentials = { private_key: 'private-key' };
+      error.body = {
+        accessKeyId: 'access-key',
+        message: 'provider details',
+        private_key: 'private-key',
+      };
 
       const mockRuntime: LobeRuntimeAI = {
         baseURL: 'abc',
@@ -195,6 +203,8 @@ describe('GET handler', () => {
 
       expect(responseBody.body.error.status).toBe(403);
       expect(responseBody.body.error.headers).toBeUndefined();
+      expect(responseBody.body.error.credentials).toBeUndefined();
+      expect(responseBody.body.error.body).toEqual({ message: 'provider details' });
     });
   });
 
