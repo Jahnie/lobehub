@@ -1,5 +1,6 @@
 import type { ChatCompletionErrorPayload } from '@lobechat/model-runtime';
 import { AgentRuntimeErrorType } from '@lobechat/model-runtime';
+import { ChatErrorType, type ErrorType } from '@lobechat/types';
 import { isRecord } from '@lobechat/utils';
 import { NextResponse } from 'next/server';
 
@@ -67,7 +68,12 @@ const isSensitiveField = (key: string) => {
   );
 };
 
-const toJsonSafeValue = (value: unknown, seen = new WeakSet<object>(), depth = 0): unknown => {
+const toJsonSafeValue = (
+  value: unknown,
+  seen = new WeakSet<object>(),
+  depth = 0,
+  redactSensitiveFields = true,
+): unknown => {
   if (value === null) return null;
 
   if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean')
@@ -84,7 +90,9 @@ const toJsonSafeValue = (value: unknown, seen = new WeakSet<object>(), depth = 0
 
     seen.add(value);
 
-    return value.map((item) => toJsonSafeValue(item, seen, depth + 1) ?? null);
+    return value.map(
+      (item) => toJsonSafeValue(item, seen, depth + 1, redactSensitiveFields) ?? null,
+    );
   }
 
   if (!isRecord(value)) return String(value);
@@ -102,18 +110,18 @@ const toJsonSafeValue = (value: unknown, seen = new WeakSet<object>(), depth = 0
 
     for (const key of ERROR_FIELDS_TO_PRESERVE) {
       const fieldValue = (value as unknown as Record<string, unknown>)[key];
-      const safeValue = toJsonSafeValue(fieldValue, seen, depth + 1);
+      const safeValue = toJsonSafeValue(fieldValue, seen, depth + 1, redactSensitiveFields);
 
       if (safeValue !== undefined) errorValue[key] = safeValue;
     }
 
-    const cause = toJsonSafeValue(value.cause, seen, depth + 1);
+    const cause = toJsonSafeValue(value.cause, seen, depth + 1, redactSensitiveFields);
     if (cause !== undefined) errorValue.cause = cause;
 
     for (const [key, fieldValue] of Object.entries(value)) {
-      if (isSensitiveField(key)) continue;
+      if (redactSensitiveFields && isSensitiveField(key)) continue;
 
-      const safeValue = toJsonSafeValue(fieldValue, seen, depth + 1);
+      const safeValue = toJsonSafeValue(fieldValue, seen, depth + 1, redactSensitiveFields);
       if (safeValue !== undefined) errorValue[key] = safeValue;
     }
 
@@ -123,9 +131,9 @@ const toJsonSafeValue = (value: unknown, seen = new WeakSet<object>(), depth = 0
   const result: Record<string, unknown> = {};
 
   for (const [key, fieldValue] of Object.entries(value)) {
-    if (isSensitiveField(key)) continue;
+    if (redactSensitiveFields && isSensitiveField(key)) continue;
 
-    const safeValue = toJsonSafeValue(fieldValue, seen, depth + 1);
+    const safeValue = toJsonSafeValue(fieldValue, seen, depth + 1, redactSensitiveFields);
     if (safeValue !== undefined) result[key] = safeValue;
   }
 
@@ -176,34 +184,48 @@ const extractModelFetchErrorMessage = (
   if (typeof record.statusCode === 'number') return `HTTP ${record.statusCode}`;
 };
 
-const normalizeModelListResponse = (list: unknown) => toJsonSafeValue(list);
+const normalizeModelListResponse = (list: unknown) =>
+  toJsonSafeValue(list, new WeakSet<object>(), 0, false);
+
+const createModelListErrorResponse = (
+  provider: string,
+  e: unknown,
+  fallbackErrorType: ErrorType | AgentRuntimeErrorType,
+) => {
+  const errorPayload = isRecord(e) ? (e as Partial<ChatCompletionErrorPayload>) : undefined;
+  const errorType = errorPayload?.errorType || fallbackErrorType;
+  const errorContent = errorPayload?.error;
+
+  const error = errorContent || e;
+  const message = extractModelFetchErrorMessage(error) || errorPayload?.message;
+  // track the error at server side
+  console.error(`Route: [${provider}] ${errorType}:`, error);
+
+  return createErrorResponse(errorType, {
+    error: normalizeModelFetchError(error),
+    message,
+    provider,
+  });
+};
 
 export const GET = checkAuth(async (req, { params, userId, serverDB }) => {
   const provider = (await params)!.provider!;
 
+  let agentRuntime: Awaited<ReturnType<typeof initModelRuntimeFromDB>>;
   try {
     const workspaceId = await resolveValidWorkspaceIdFromRequest({ req, serverDB, userId });
 
     // Read user's provider config from database
-    const agentRuntime = await initModelRuntimeFromDB(serverDB, userId, provider, workspaceId);
+    agentRuntime = await initModelRuntimeFromDB(serverDB, userId, provider, workspaceId);
+  } catch (e) {
+    return createModelListErrorResponse(provider, e, ChatErrorType.InternalServerError);
+  }
 
+  try {
     const list = await agentRuntime.models();
 
     return NextResponse.json(normalizeModelListResponse(list));
   } catch (e) {
-    const errorPayload = isRecord(e) ? (e as Partial<ChatCompletionErrorPayload>) : undefined;
-    const errorType = errorPayload?.errorType || AgentRuntimeErrorType.ProviderBizError;
-    const errorContent = errorPayload?.error;
-
-    const error = errorContent || e;
-    const message = extractModelFetchErrorMessage(error) || errorPayload?.message;
-    // track the error at server side
-    console.error(`Route: [${provider}] ${errorType}:`, error);
-
-    return createErrorResponse(errorType, {
-      error: normalizeModelFetchError(error),
-      message,
-      provider,
-    });
+    return createModelListErrorResponse(provider, e, AgentRuntimeErrorType.ProviderBizError);
   }
 });

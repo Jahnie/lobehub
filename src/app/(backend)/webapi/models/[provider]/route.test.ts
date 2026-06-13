@@ -194,6 +194,20 @@ describe('GET handler', () => {
       expect(responseBody.body.error.message).toBe('Failed');
     });
 
+    it('should keep setup failures as internal server errors', async () => {
+      const mockParams = Promise.resolve({ provider: 'google' });
+
+      vi.mocked(initModelRuntimeFromDB).mockRejectedValue(new Error('Database unavailable'));
+
+      const response = await GET(request, { params: mockParams });
+      const responseBody = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(responseBody.errorType).toBe(ChatErrorType.InternalServerError);
+      expect(responseBody.body.error.message).toBe('Database unavailable');
+      expect(responseBody.body.message).toBe('Database unavailable');
+    });
+
     it('should return provider biz error for empty rejections', async () => {
       const mockParams = Promise.resolve({ provider: 'google' });
 
@@ -292,7 +306,9 @@ describe('GET handler', () => {
       const mockRuntime: LobeRuntimeAI = {
         baseURL: 'abc',
         chat: vi.fn(),
-        models: vi.fn().mockResolvedValue([{ id: 'model-with-bigint', size: 1n }]),
+        models: vi
+          .fn()
+          .mockResolvedValue([{ contextWindowTokens: 128_000, id: 'model-with-bigint', size: 1n }]),
       };
       vi.mocked(initModelRuntimeFromDB).mockResolvedValue(new ModelRuntime(mockRuntime));
 
@@ -300,7 +316,9 @@ describe('GET handler', () => {
       const responseBody = await response.json();
 
       expect(response.status).toBe(200);
-      expect(responseBody).toEqual([{ id: 'model-with-bigint', size: '1' }]);
+      expect(responseBody).toEqual([
+        { contextWindowTokens: 128_000, id: 'model-with-bigint', size: '1' },
+      ]);
     });
   });
 });
