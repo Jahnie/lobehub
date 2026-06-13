@@ -36,7 +36,8 @@ const getStatus = (errorType: ILobeAgentRuntimeErrorType | ErrorType) => {
       return 400;
     }
 
-    case AgentRuntimeErrorType.LocationNotSupportError: {
+    case AgentRuntimeErrorType.LocationNotSupportError:
+    case AgentRuntimeErrorType.PermissionDenied: {
       return 403;
     }
 

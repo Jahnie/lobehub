@@ -1,4 +1,7 @@
-import type { ChatCompletionErrorPayload } from '@lobechat/model-runtime';
+import type {
+  ChatCompletionErrorPayload,
+  ILobeAgentRuntimeErrorType,
+} from '@lobechat/model-runtime';
 import { AgentRuntimeErrorType } from '@lobechat/model-runtime';
 import { ChatErrorType, type ErrorType } from '@lobechat/types';
 import { isRecord } from '@lobechat/utils';
@@ -190,7 +193,7 @@ const normalizeModelListResponse = (list: unknown) =>
 const createModelListErrorResponse = (
   provider: string,
   e: unknown,
-  fallbackErrorType: ErrorType | AgentRuntimeErrorType,
+  fallbackErrorType: ErrorType | ILobeAgentRuntimeErrorType,
 ) => {
   const errorPayload = isRecord(e) ? (e as Partial<ChatCompletionErrorPayload>) : undefined;
   const errorType = errorPayload?.errorType || fallbackErrorType;

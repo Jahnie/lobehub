@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { responsesAPIModels } from '../../const/models';
 import * as openAIContextBuilders from '../../core/contextBuilders/openai';
+import { AgentRuntimeErrorType } from '../../types/error';
 import { LobeGithubCopilotAI } from './index';
 
 // Mock console.error to avoid polluting test output
@@ -217,7 +218,7 @@ describe('LobeGithubCopilotAI', () => {
       expect(models).toEqual([]);
     });
 
-    it('should throw Error with cause when models response fails', async () => {
+    it('should throw Error with mapped errorType and cause when models response fails', async () => {
       mockFetch.mockResolvedValueOnce({
         json: () => Promise.resolve({ error: { message: 'Copilot access denied' } }),
         ok: false,
@@ -239,7 +240,52 @@ describe('LobeGithubCopilotAI', () => {
           body: { error: { message: 'Copilot access denied' } },
           status: 403,
         });
+        expect((error as Error & { errorType?: string }).errorType).toBe(
+          AgentRuntimeErrorType.PermissionDenied,
+        );
         expect((error as Error & { status?: number }).status).toBe(403);
+      }
+    });
+
+    it('should keep mapped errorType when models request still fails after token refresh', async () => {
+      const tokenResponse = (token: string) => ({
+        json: () =>
+          Promise.resolve({
+            expires_at: Math.floor(Date.now() / 1000) + 3600,
+            token,
+          }),
+        ok: true,
+        status: 200,
+      });
+
+      mockFetch
+        .mockResolvedValueOnce(tokenResponse('bearer-token-1'))
+        .mockResolvedValueOnce({
+          json: () => Promise.resolve({ error: { message: 'expired token' } }),
+          ok: false,
+          status: 401,
+        })
+        .mockResolvedValueOnce(tokenResponse('bearer-token-2'))
+        .mockResolvedValueOnce({
+          json: () => Promise.resolve({ error: { message: 'still unauthorized' } }),
+          ok: false,
+          status: 401,
+        });
+
+      const instance = new LobeGithubCopilotAI({ apiKey: 'ghp_models_retry_401' });
+
+      try {
+        await instance.models();
+        expect.fail('Expected models() to reject');
+      } catch (error) {
+        expect((error as Error).cause).toEqual({
+          body: { error: { message: 'still unauthorized' } },
+          status: 401,
+        });
+        expect((error as Error & { errorType?: string }).errorType).toBe(
+          AgentRuntimeErrorType.InvalidGithubCopilotToken,
+        );
+        expect((error as Error & { status?: number }).status).toBe(401);
       }
     });
   });

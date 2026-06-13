@@ -194,6 +194,29 @@ describe('GET handler', () => {
       expect(responseBody.body.error.message).toBe('Failed');
     });
 
+    it('should preserve provider-specific model error types', async () => {
+      const mockParams = Promise.resolve({ provider: 'githubcopilot' });
+      const providerError = Object.assign(new Error('GitHub Copilot models API request failed'), {
+        errorType: AgentRuntimeErrorType.PermissionDenied,
+        status: 403,
+      });
+
+      const mockRuntime: LobeRuntimeAI = {
+        baseURL: 'abc',
+        chat: vi.fn(),
+        models: vi.fn().mockRejectedValue(providerError),
+      };
+      vi.mocked(initModelRuntimeFromDB).mockResolvedValue(new ModelRuntime(mockRuntime));
+
+      const response = await GET(request, { params: mockParams });
+      const responseBody = await response.json();
+
+      expect(response.status).toBe(403);
+      expect(responseBody.errorType).toBe(AgentRuntimeErrorType.PermissionDenied);
+      expect(responseBody.body.error.message).toBe('GitHub Copilot models API request failed');
+      expect(responseBody.body.error.status).toBe(403);
+    });
+
     it('should keep setup failures as internal server errors', async () => {
       const mockParams = Promise.resolve({ provider: 'google' });
 

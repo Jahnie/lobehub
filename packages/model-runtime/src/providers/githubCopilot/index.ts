@@ -420,7 +420,10 @@ export class LobeGithubCopilotAI implements LobeRuntimeAI {
             new Error('GitHub Copilot models API request failed', {
               cause: { body, status: response.status },
             }),
-            { status: response.status },
+            {
+              errorType: this.mapStatusToErrorType(response.status),
+              status: response.status,
+            },
           );
         }
 
@@ -524,43 +527,32 @@ export class LobeGithubCopilotAI implements LobeRuntimeAI {
     return undefined;
   }
 
+  private mapStatusToErrorType(status: number | undefined) {
+    switch (status) {
+      case 401: {
+        return AgentRuntimeErrorType.InvalidGithubCopilotToken;
+      }
+      case 403: {
+        return AgentRuntimeErrorType.PermissionDenied;
+      }
+      case 429: {
+        return AgentRuntimeErrorType.QuotaLimitReached;
+      }
+      default: {
+        return AgentRuntimeErrorType.ProviderBizError;
+      }
+    }
+  }
+
   private mapError(error: any) {
     const status = error?.status ?? error?.error?.status;
 
-    switch (status) {
-      case 401: {
-        return AgentRuntimeError.chat({
-          endpoint: this.baseURL,
-          error,
-          errorType: AgentRuntimeErrorType.InvalidGithubCopilotToken,
-          provider: ModelProvider.GithubCopilot,
-        });
-      }
-      case 403: {
-        return AgentRuntimeError.chat({
-          endpoint: this.baseURL,
-          error,
-          errorType: AgentRuntimeErrorType.PermissionDenied,
-          provider: ModelProvider.GithubCopilot,
-        });
-      }
-      case 429: {
-        return AgentRuntimeError.chat({
-          endpoint: this.baseURL,
-          error,
-          errorType: AgentRuntimeErrorType.QuotaLimitReached,
-          provider: ModelProvider.GithubCopilot,
-        });
-      }
-      default: {
-        return AgentRuntimeError.chat({
-          endpoint: this.baseURL,
-          error,
-          errorType: AgentRuntimeErrorType.ProviderBizError,
-          provider: ModelProvider.GithubCopilot,
-        });
-      }
-    }
+    return AgentRuntimeError.chat({
+      endpoint: this.baseURL,
+      error,
+      errorType: this.mapStatusToErrorType(status),
+      provider: ModelProvider.GithubCopilot,
+    });
   }
 }
 
