@@ -4,7 +4,7 @@ import { lazy, Suspense } from 'react';
 import type { RouteObject } from 'react-router-dom';
 import { Outlet, useRouteError } from 'react-router-dom';
 
-import Loading from '@/components/Loading/BrandTextLoading';
+import LoadingIcon from '@/features/Auth/LoadingIcon';
 import AuthShell from '@/features/AuthShell';
 import { isChunkLoadError, notifyChunkError } from '@/utils/chunkError';
 
@@ -129,7 +129,7 @@ export const authRoutes: RouteObject[] = [
     ],
     element: (
       <AuthShell>
-        <Suspense fallback={<Loading debugId="AuthRoutes" />}>
+        <Suspense fallback={<LoadingIcon label="Loading" size={48} />}>
           <Outlet />
         </Suspense>
       </AuthShell>
