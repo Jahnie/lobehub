@@ -1,11 +1,13 @@
 'use client';
 
 import { APP_WINDOW_MIN_SIZE } from '@lobechat/desktop-bridge';
+import { type DataSyncConfig } from '@lobechat/electron-client-ipc';
 import { Flexbox, Skeleton } from '@lobehub/ui';
-import { memo, Suspense, useCallback, useEffect, useState } from 'react';
+import { memo, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import Loading from '@/components/Loading/BrandTextLoading';
+import { remoteServerService } from '@/services/electron/remoteServer';
 import { electronSystemService } from '@/services/electron/system';
 
 import OnboardingContainer from './_layout';
@@ -28,19 +30,24 @@ const DesktopOnboardingPage = memo(() => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [isMac, setIsMac] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
+  const isCompletingRef = useRef(false);
 
-  const flow = isMac
-    ? [
-        DesktopOnboardingScreen.Welcome,
-        DesktopOnboardingScreen.Permissions,
-        DesktopOnboardingScreen.DataMode,
-        DesktopOnboardingScreen.Login,
-      ]
-    : [
-        DesktopOnboardingScreen.Welcome,
-        DesktopOnboardingScreen.DataMode,
-        DesktopOnboardingScreen.Login,
-      ];
+  const flow = useMemo(
+    () =>
+      isMac
+        ? [
+            DesktopOnboardingScreen.Welcome,
+            DesktopOnboardingScreen.Permissions,
+            DesktopOnboardingScreen.DataMode,
+            DesktopOnboardingScreen.Login,
+          ]
+        : [
+            DesktopOnboardingScreen.Welcome,
+            DesktopOnboardingScreen.DataMode,
+            DesktopOnboardingScreen.Login,
+          ],
+    [isMac],
+  );
 
   const resolveScreenForPlatform = useCallback(
     (screen: DesktopOnboardingScreen) =>
@@ -64,6 +71,13 @@ const DesktopOnboardingPage = memo(() => {
     DesktopOnboardingScreen.Welcome,
   );
 
+  const isRemoteServerConfigured = useCallback((config: DataSyncConfig) => {
+    if (!config.active) return false;
+    if (config.storageMode !== 'selfHost') return true;
+
+    return !!config.remoteServerUrl?.trim();
+  }, []);
+
   useEffect(() => {
     if (isLoading) return;
 
@@ -85,7 +99,7 @@ const DesktopOnboardingPage = memo(() => {
 
   // Persist current screen to localStorage.
   useEffect(() => {
-    if (isLoading) return;
+    if (isLoading || isCompletingRef.current) return;
     setDesktopOnboardingScreen(currentScreen);
   }, [currentScreen, isLoading]);
 
@@ -140,42 +154,59 @@ const DesktopOnboardingPage = memo(() => {
     if (resolved !== currentScreen) setCurrentScreen(resolved);
   }, [currentScreen, getRequestedScreenFromUrl, isLoading, resolveScreenForPlatform]);
 
-  const goToNextStep = useCallback(() => {
-    setCurrentScreen((prev) => {
-      const idx = flow.indexOf(prev);
-      const next = flow[idx + 1];
+  const completeOnboarding = useCallback(() => {
+    isCompletingRef.current = true;
 
-      if (!next) {
-        // Complete onboarding - mark as completed and clear persisted screen state
-        setDesktopOnboardingCompleted();
-        setDesktopOnboardingEverCompleted();
-        clearDesktopOnboardingScreen();
+    setDesktopOnboardingCompleted();
+    setDesktopOnboardingEverCompleted();
+    clearDesktopOnboardingScreen();
 
-        // Restore window minimum size before hard reload (cleanup won't run due to hard navigation)
-        electronSystemService
-          .setWindowMinimumSize(APP_WINDOW_MIN_SIZE)
-          .catch(console.error)
-          .finally(() => {
-            // Use hard reload instead of SPA navigation to ensure the app boots with the new desktop state.
-            window.location.replace('/');
-          });
-
-        return prev;
-      }
-
-      setSearchParams({ screen: next });
-      return next;
+    // Use hard reload instead of SPA navigation to ensure the app boots with the new desktop state.
+    electronSystemService.setWindowMinimumSize(APP_WINDOW_MIN_SIZE).catch((error) => {
+      console.error('[DesktopOnboarding] Failed to restore window settings:', error);
     });
-  }, [isMac, setSearchParams]);
+    window.location.replace('/');
+  }, []);
+
+  useEffect(() => {
+    if (isLoading) return;
+    if (!getDesktopOnboardingEverCompleted()) return;
+
+    let mounted = true;
+    remoteServerService
+      .getRemoteServerConfig()
+      .then((config) => {
+        if (!mounted) return;
+        if (!isRemoteServerConfigured(config)) return;
+
+        completeOnboarding();
+      })
+      .catch(() => undefined);
+
+    return () => {
+      mounted = false;
+    };
+  }, [completeOnboarding, isLoading, isRemoteServerConfigured]);
+
+  const goToNextStep = useCallback(() => {
+    const idx = flow.indexOf(currentScreen);
+    const next = flow[idx + 1];
+
+    if (!next) {
+      completeOnboarding();
+      return;
+    }
+
+    setSearchParams({ screen: next });
+    setCurrentScreen(next);
+  }, [completeOnboarding, currentScreen, flow, setSearchParams]);
 
   const goToPreviousStep = useCallback(() => {
-    setCurrentScreen((prev) => {
-      const idx = flow.indexOf(prev);
-      const prevScreen = flow[Math.max(0, idx - 1)] ?? DesktopOnboardingScreen.Welcome;
-      setSearchParams({ screen: prevScreen });
-      return prevScreen;
-    });
-  }, [isMac, setSearchParams]);
+    const idx = flow.indexOf(currentScreen);
+    const prevScreen = flow[Math.max(0, idx - 1)] ?? DesktopOnboardingScreen.Welcome;
+    setSearchParams({ screen: prevScreen });
+    setCurrentScreen(prevScreen);
+  }, [currentScreen, flow, setSearchParams]);
 
   if (isLoading) {
     return <Loading debugId="DesktopOnboarding" />;
