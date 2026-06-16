@@ -3,7 +3,6 @@ import type {
   AgentInterventionResponseData,
   AgentStreamEvent,
 } from '@lobechat/agent-gateway-client';
-import { isDesktop } from '@lobechat/const';
 import {
   CLAUDE_CODE_CLI_INSTALL_DOCS_URL,
   CODEX_CLI_INSTALL_DOCS_URL,
@@ -36,8 +35,7 @@ import { heterogeneousAgentService } from '@/services/electron/heterogeneousAgen
 import { messageService } from '@/services/message';
 import { threadService } from '@/services/thread';
 import { type ChatStore, useChatStore } from '@/store/chat/store';
-import { resolveNotificationNavigatePath } from '@/store/chat/utils/desktopNotification';
-import { markdownToTxt } from '@/utils/markdownToTxt';
+import { notifyDesktopAgentCompleted } from '@/store/chat/utils/desktopNotification';
 
 import { messageMapKey } from '../../../utils/messageMapKey';
 import { mergeQueuedMessages, reconstructUploadFilesFromQueue } from '../../operation/types';
@@ -45,33 +43,6 @@ import { createGatewayEventHandler } from './gatewayEventHandler';
 
 /** Mirrors `idGenerator('threads', 16)` on the server so sync-allocated ids have the same shape. */
 const generateThreadId = () => `thd_${createNanoId(16)()}`;
-
-/**
- * Fire desktop notification + dock badge when a CC/Codex/ACP run finishes.
- * Notification only shows when the window is hidden (enforced in main); the
- * badge is always set so a minimized/backgrounded app still signals completion.
- */
-const notifyCompletion = async (title: string, body: string, context: ConversationContext) => {
-  if (!isDesktop) return;
-  try {
-    const { desktopNotificationService } = await import('@/services/electron/desktopNotification');
-    const navigatePath = resolveNotificationNavigatePath({
-      agentId: context.agentId,
-      groupId: context.groupId,
-      topicId: context.topicId,
-    });
-    await Promise.allSettled([
-      desktopNotificationService.showNotification({
-        body,
-        navigate: navigatePath ? { path: navigatePath } : undefined,
-        title,
-      }),
-      desktopNotificationService.setBadgeCount(1),
-    ]);
-  } catch (error) {
-    console.error('[HeterogeneousAgent] Desktop notification failed:', error);
-  }
-};
 
 const CLI_AUTH_REQUIRED_PATTERNS = [
   /failed to authenticate/i,
@@ -1364,14 +1335,7 @@ export const executeHeterogeneousAgent = async (
         // Signal completion to the user — dock badge + (window-hidden) notification.
         // Skip for aborted runs and for error terminations.
         if (!isAborted() && !isErrorTerminal) {
-          const body = finalContent
-            ? markdownToTxt(finalContent)
-            : t('notification.finishChatGeneration', { ns: 'electron' });
-          notifyCompletion(
-            t('notification.finishChatGeneration', { ns: 'electron' }),
-            body,
-            context,
-          );
+          notifyDesktopAgentCompleted(get, { badge: true, content: finalContent, context });
         }
       },
 
