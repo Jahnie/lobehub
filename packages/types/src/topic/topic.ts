@@ -260,6 +260,7 @@ export interface CreateTopicParams {
   favorite?: boolean;
   groupId?: string | null;
   messages?: string[];
+  metadata?: ChatTopicMetadata;
   sessionId?: string | null;
   title: string;
   trigger?: string;

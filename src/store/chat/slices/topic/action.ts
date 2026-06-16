@@ -15,6 +15,8 @@ import { cronKeys, topicKeys } from '@/libs/swr/keys';
 import { chatService } from '@/services/chat';
 import { messageService } from '@/services/message';
 import { topicService } from '@/services/topic';
+import { getAgentStoreState } from '@/store/agent';
+import { agentByIdSelectors } from '@/store/agent/selectors';
 import { type ChatStore } from '@/store/chat';
 import { topicMapKey } from '@/store/chat/utils/topicMapKey';
 import { useGlobalStore } from '@/store/global';
@@ -37,6 +39,24 @@ import { topicReducer } from './reducer';
 import { topicSelectors } from './selectors';
 
 const n = setNamespace('t');
+
+/**
+ * Snapshot the given agent's current model/provider so a newly created topic
+ * remembers which model it was started with. Subsequent model switches while the
+ * topic is active update this metadata (see `updateTopicMetadata`), and
+ * generation reads from it (see `topicSelectors.getTopicModelById`).
+ */
+const snapshotAgentModelMetadata = (
+  agentId?: string | null,
+): Pick<ChatTopicMetadata, 'model' | 'provider'> | undefined => {
+  if (!agentId) return undefined;
+
+  const agentState = getAgentStoreState();
+  const model = agentByIdSelectors.getAgentModelById(agentId)(agentState);
+  if (!model) return undefined;
+
+  return { model, provider: agentByIdSelectors.getAgentModelProviderById(agentId)(agentState) };
+};
 
 type CronTopicsGroupWithJobInfo = {
   cronJob: unknown;
@@ -111,10 +131,12 @@ export class ChatTopicActionImpl {
     const messages = displayMessageSelectors.activeDisplayMessages(this.#get());
 
     this.#set({ creatingTopic: true }, false, n('creatingTopic/start'));
+    const targetSessionId = sessionId || activeAgentId;
     const topicId = await internal_createTopic({
+      metadata: snapshotAgentModelMetadata(targetSessionId),
       title: t('defaultTitle', { ns: 'topic' }),
       messages: messages.map((m) => m.id),
-      sessionId: sessionId || activeAgentId,
+      sessionId: targetSessionId,
     });
     this.#set({ creatingTopic: false }, false, n('creatingTopic/end'));
 
@@ -127,12 +149,14 @@ export class ChatTopicActionImpl {
     if (messages.length === 0) return;
 
     const { activeAgentId, summaryTopicTitle, internal_createTopic } = this.#get();
+    const targetSessionId = sessionId || activeAgentId;
 
     // 1. create topic and bind these messages
     const topicId = await internal_createTopic({
+      metadata: snapshotAgentModelMetadata(targetSessionId),
       title: t('defaultTitle', { ns: 'topic' }),
       messages: messages.map((m) => m.id),
-      sessionId: sessionId || activeAgentId,
+      sessionId: targetSessionId,
     });
 
     this.#get().internal_updateTopicLoading(topicId, true);

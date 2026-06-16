@@ -207,6 +207,12 @@ export const topicRouter = router({
           favorite: z.boolean().optional(),
           groupId: z.string().nullable().optional(),
           messages: z.array(z.string()).optional(),
+          metadata: z
+            .object({
+              model: z.string().optional(),
+              provider: z.string().optional(),
+            })
+            .optional(),
           title: z.string(),
           trigger: z.string().optional(),
         })
