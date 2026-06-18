@@ -349,4 +349,64 @@ describe('DocumentExplorerTree', () => {
     });
     expect(messageSuccess).not.toHaveBeenCalled();
   });
+
+  it('disables dragging on dirty rows (empty or duplicate filename)', () => {
+    const data = [
+      createDocument({
+        documentId: 'good-folder-doc',
+        filename: 'Notes',
+        id: 'good-folder-row',
+        isFolder: true,
+        title: 'Notes',
+      }),
+      // Empty filename → its VFS path collapses onto the parent.
+      createDocument({
+        documentId: 'empty-folder-doc',
+        filename: '',
+        id: 'empty-folder-row',
+        isFolder: true,
+        title: '',
+      }),
+      // Two siblings share a filename → the VFS resolves to the wrong row.
+      createDocument({ documentId: 'dup-a-doc', filename: 'dup.md', id: 'dup-a-row', title: 'dup' }),
+      createDocument({ documentId: 'dup-b-doc', filename: 'dup.md', id: 'dup-b-row', title: 'dup' }),
+    ];
+
+    render(<DocumentExplorerTree agentId="agent-1" data={data} mutate={vi.fn()} />, {
+      wrapper: MemoryRouter,
+    });
+
+    expect(screen.getByTestId('tree-node-good-folder-row')).toHaveAttribute('data-can-drag', 'true');
+    expect(screen.getByTestId('tree-node-empty-folder-row')).toHaveAttribute(
+      'data-can-drag',
+      'false',
+    );
+    expect(screen.getByTestId('tree-node-dup-a-row')).toHaveAttribute('data-can-drag', 'false');
+    expect(screen.getByTestId('tree-node-dup-b-row')).toHaveAttribute('data-can-drag', 'false');
+  });
+
+  it('refuses to path-delete a dirty folder and asks to rename it first', () => {
+    const mutate = vi.fn().mockResolvedValue(undefined);
+    const data = [
+      createDocument({
+        documentId: 'empty-folder-doc',
+        filename: '',
+        id: 'empty-folder-row',
+        isFolder: true,
+        title: '',
+      }),
+    ];
+
+    render(<DocumentExplorerTree agentId="agent-1" data={data} mutate={mutate} />, {
+      wrapper: MemoryRouter,
+    });
+
+    fireEvent.click(screen.getByTestId('tree-menu-empty-folder-row-delete'));
+
+    // The dirty folder is excluded before the confirm dialog: no modal opens, a
+    // warning is shown, and no path-based delete is ever attempted.
+    expect(modalConfirm).not.toHaveBeenCalled();
+    expect(messageWarning).toHaveBeenCalledWith('workingPanel.resources.tree.renameBeforeAction');
+    expect(removeDocumentMock).not.toHaveBeenCalled();
+  });
 });

@@ -22,6 +22,11 @@ const ROOT_PATH = './';
 const joinPath = (parentPath: string, segment: string) =>
   parentPath === ROOT_PATH ? `${ROOT_PATH}${segment}` : `${parentPath}/${segment}`;
 
+// Key a row by (parent, filename) so we can detect filename collisions among
+// siblings — the granularity the path-based VFS actually resolves on.
+const siblingFilenameKey = (parentDocumentId: string | null, filename: string) =>
+  `${parentDocumentId ?? ''} ${filename}`;
+
 // Service mutations return AgentDocumentStats-shaped payloads where the
 // agentDocumentItems row id is exposed as `id` (and mirrored on
 // `agentDocumentId`). Extract defensively since tRPC narrows the type
@@ -46,6 +51,8 @@ export interface DocumentTreeOps {
   createDocument: (parentId: string | null, opts?: CreateOptions) => Promise<void>;
   createFolder: (parentId: string | null, opts?: CreateOptions) => Promise<void>;
   deleteDocuments: (ids: string[]) => void;
+  /** Whether a row is safe for path-based actions (drag-to-move). */
+  isRowPathSafe: (id: string) => boolean;
   moveDocument: (params: {
     sourceIds: string[];
     sourceNodes: { data?: AgentDocumentItem }[];
@@ -81,20 +88,48 @@ export const useDocumentTreeOps = ({
     return map;
   }, [data]);
 
+  // How many siblings share each (parent, filename). >1 means the filename is
+  // ambiguous and the VFS would resolve it to the wrong (oldest) row.
+  const filenameCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const doc of data) {
+      const key = siblingFilenameKey(doc.parentId ?? null, doc.filename);
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    return counts;
+  }, [data]);
+
+  // A row is safe for path-based VFS actions (folder delete, move) only when its
+  // filename is non-empty AND unique among its siblings. Otherwise the path is
+  // ambiguous: a blank segment collapses onto the parent (`./Parent/` →
+  // `./Parent`) and a duplicate name resolves to a different sibling — so
+  // deleting/moving a "dirty" row would hit the parent or the wrong row. These
+  // rows stay on id-based actions (rename) until repaired.
+  const isItemPathSafe = useCallback(
+    (item: AgentDocumentItem): boolean =>
+      item.filename.trim() !== '' &&
+      filenameCounts.get(siblingFilenameKey(item.parentId ?? null, item.filename)) === 1,
+    [filenameCounts],
+  );
+
   // Walk up via item.parentId (= parent's documentId) until we hit the root.
+  // Returns null when the item or any ancestor is path-unsafe, so every
+  // path-based caller (delete / move / create) falls back to its safe branch.
   const buildItemPath = useCallback(
     (item: AgentDocumentItem): string | null => {
+      if (!isItemPathSafe(item)) return null;
       const segments: string[] = [item.filename];
       let parentDocId = item.parentId;
       while (parentDocId) {
         const parent = byDocumentId.get(parentDocId);
         if (!parent) return null;
+        if (!isItemPathSafe(parent)) return null;
         segments.unshift(parent.filename);
         parentDocId = parent.parentId;
       }
       return `${ROOT_PATH}${segments.join('/')}`;
     },
-    [byDocumentId],
+    [byDocumentId, isItemPathSafe],
   );
 
   // Resolves the parent's path given a tree-node parent id (= row id) or null.
@@ -311,17 +346,24 @@ export const useDocumentTreeOps = ({
       const targetParentDocId = targetItem ? targetItem.documentId : null;
 
       const moves: Array<{ fromPath: string; id: string; toPath: string }> = [];
+      let skippedDirty = false;
       for (const id of sourceIds) {
         const node = sourceNodes.find((n) => n.data?.id === id)?.data;
         if (!node) continue;
         if (node.category === 'skill') return;
         const fromPath = buildItemPath(node);
-        if (!fromPath) continue;
+        // A dirty source (empty/duplicate filename) has no addressable path —
+        // skip it so we never move the wrong row, and flag it for the user.
+        if (!fromPath) {
+          skippedDirty = true;
+          continue;
+        }
         const toPath = joinPath(targetParentPath, node.filename);
         if (fromPath === toPath) continue;
         moves.push({ fromPath, id, toPath });
       }
 
+      if (skippedDirty) message.warning(t('workingPanel.resources.tree.renameBeforeAction'));
       if (moves.length === 0) return;
 
       // Optimistic: reparent each source row to the new parent's documentId.
@@ -383,7 +425,16 @@ export const useDocumentTreeOps = ({
       };
       const targets = resolved.filter((doc) => !hasAncestorIn(doc, folderDocIds));
 
-      if (targets.length === 0) return;
+      // A dirty folder row can't be addressed by path, and deleteByPath would
+      // recurse into its parent — exclude it and ask the user to rename it
+      // first. Files delete by id (id-safe), so they always stay.
+      const safeTargets = targets.filter(
+        (doc) => !(doc.isFolder && !doc.isSkillBundle) || buildItemPath(doc) !== null,
+      );
+      if (safeTargets.length < targets.length) {
+        message.warning(t('workingPanel.resources.tree.renameBeforeAction'));
+      }
+      if (safeTargets.length === 0) return;
 
       confirmModal({
         cancelText: t('cancel', { ns: 'common' }),
@@ -397,11 +448,12 @@ export const useDocumentTreeOps = ({
             | { kind: 'row'; target: AgentDocumentItem }
           > = [];
 
-          for (const target of targets) {
+          for (const target of safeTargets) {
             // Skill bundles are removed via the bundle row, not path-based
             // recursive removal.
             const isFolder = target.isFolder && !target.isSkillBundle;
             if (isFolder) {
+              // safeTargets already excludes dirty folders, so this is defensive.
               const folderPath = buildItemPath(target);
               if (!folderPath) {
                 message.error(t('workingPanel.resources.tree.parentMissing'));
@@ -471,12 +523,22 @@ export const useDocumentTreeOps = ({
           })();
         },
         title:
-          targets.length > 1
-            ? t('workingPanel.resources.deleteTitleMulti', { count: targets.length })
+          safeTargets.length > 1
+            ? t('workingPanel.resources.deleteTitleMulti', { count: safeTargets.length })
             : t('workingPanel.resources.deleteTitle'),
       });
     },
     [agentId, buildItemPath, message, mutate, t, topicId],
+  );
+
+  // A dirty row can still render as a normal tree node; surface its path-safety
+  // so the view can disable id-unsafe affordances (e.g. drag-to-move) on it.
+  const isRowPathSafe = useCallback(
+    (id: string): boolean => {
+      const item = byRowId.get(id);
+      return !!item && buildItemPath(item) !== null;
+    },
+    [byRowId, buildItemPath],
   );
 
   return useMemo(
@@ -484,9 +546,10 @@ export const useDocumentTreeOps = ({
       createDocument,
       createFolder,
       deleteDocuments,
+      isRowPathSafe,
       moveDocument,
       renameDocument,
     }),
-    [createDocument, createFolder, deleteDocuments, moveDocument, renameDocument],
+    [createDocument, createFolder, deleteDocuments, isRowPathSafe, moveDocument, renameDocument],
   );
 };

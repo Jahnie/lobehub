@@ -1060,6 +1060,7 @@
   "workingPanel.resources.tree.newFolder": "新建文件夹",
   "workingPanel.resources.tree.parentMissing": "上级目录不可用",
   "workingPanel.resources.tree.rename": "重命名",
+  "workingPanel.resources.tree.renameBeforeAction": "请先重命名该项目,再进行移动或删除",
   "workingPanel.resources.tree.untitledDocument": "未命名文档",
   "workingPanel.resources.tree.untitledFolder": "未命名文件夹",
   "workingPanel.resources.updatedAt": "更新于 {{time}}",

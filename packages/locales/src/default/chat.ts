@@ -1125,6 +1125,7 @@ export default {
   'workingPanel.resources.tree.newDocument': 'New document',
   'workingPanel.resources.tree.newFolder': 'New folder',
   'workingPanel.resources.tree.rename': 'Rename',
+  'workingPanel.resources.tree.renameBeforeAction': 'Rename this item before moving or deleting it',
   'workingPanel.resources.tree.untitledDocument': 'Untitled document',
   'workingPanel.resources.tree.untitledFolder': 'Untitled folder',
   'workingPanel.resources.updatedAt': 'Updated {{time}}',

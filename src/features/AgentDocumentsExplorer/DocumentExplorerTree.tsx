@@ -214,8 +214,12 @@ const DocumentExplorerTree = memo<Props>(({ agentId, data, mutate, onOpenDocumen
 
   const canDrag = useCallback(
     (node: ExplorerTreeNode<AgentDocumentItem>) =>
-      !!node.data && node.data.category === AGENT_DOCUMENT_CATEGORY,
-    [],
+      !!node.data &&
+      node.data.category === AGENT_DOCUMENT_CATEGORY &&
+      // A dirty row (empty/duplicate filename) can't be addressed by path, so
+      // dragging it would move the wrong row — keep it pinned until renamed.
+      ops.isRowPathSafe(node.id),
+    [ops],
   );
 
   const canRename = useCallback(
