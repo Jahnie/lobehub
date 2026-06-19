@@ -1944,7 +1944,8 @@ When I am ___, I need ___
   'workspace.wizard.step1.name.label': 'Workspace name',
   'workspace.wizard.step1.name.placeholder': 'Example Team',
   'workspace.wizard.step1.name.required': 'Workspace name is required',
-  'workspace.wizard.step1.slug.available': 'This URL is available',
+  'workspace.wizard.step1.slug.available':
+    'This URL is available. You can change it later in Settings.',
   'workspace.wizard.step1.slug.checking': 'Checking availability…',
   'workspace.wizard.step1.slug.invalidBrandProtected':
     'This workspace URL is associated with a protected brand. Please apply from your organization email.',
