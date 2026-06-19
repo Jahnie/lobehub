@@ -2399,6 +2399,42 @@ export class MessageModel {
     return row?.id;
   };
 
+  /**
+   * Id of the latest main-thread (`threadId IS NULL`) tool message in a topic —
+   * the anchor a signal-tagged reactive turn (Monitor stdout callback,
+   * post-task summary) parents off, so the read side renders it as a tool-child
+   * (`collectFlatSignalCallbacks` / `collectFlatTaskCompletions`) rather than a
+   * spine turn.
+   *
+   * Symmetric to {@link getLastMainThreadSpineMessageId}, and read from the DB
+   * for the same reason: the reducer keeps `lastToolMsgIdEver` in memory, but a
+   * cold / non-sticky replica that processes a signal turn WITHOUT having seen
+   * the prior tool batch has it `undefined` — falling back to the spine anchor
+   * (an assistant). A signal turn anchored on an assistant is then dropped: it
+   * is excluded from spine continuation (signal-tagged) AND from task-completion
+   * collection (which only scans tool children), so the message vanishes.
+   * Recovering the anchor here keeps the reactive turn rooted on a tool. No
+   * `createdAt` floor: a topic runs at most one operation at a time, so the
+   * latest tool IS this run's most recent context.
+   */
+  getLastMainThreadToolMessageId = async (topicId: string): Promise<string | undefined> => {
+    const [row] = await this.db
+      .select({ id: messages.id })
+      .from(messages)
+      .where(
+        and(
+          eq(messages.topicId, topicId),
+          eq(messages.role, 'tool'),
+          isNull(messages.threadId),
+          this.ownership(),
+        ),
+      )
+      .orderBy(desc(messages.createdAt))
+      .limit(1);
+
+    return row?.id;
+  };
+
   updateTranslate = async (id: string, translate: Partial<ChatTranslate>) => {
     const result = await this.db.query.messageTranslates.findFirst({
       where: and(eq(messageTranslates.id, id), this.translatesOwnership()),

@@ -31,6 +31,7 @@ import {
 interface FakeMessage {
   content: string;
   id: string;
+  metadata?: Record<string, any> | null;
   parentId?: string | null;
   role: 'user' | 'assistant' | 'tool';
   seq: number;
@@ -79,6 +80,7 @@ const createHarness = () => {
       const msg: FakeMessage = {
         content: input.content ?? '',
         id: msgId,
+        metadata: input.metadata ?? null,
         parentId: input.parentId ?? null,
         role: input.role!,
         seq: seq++,
@@ -113,6 +115,13 @@ const createHarness = () => {
             !m.threadId &&
             !(m as any).metadata?.signal,
         )
+        .sort((a, b) => b.seq - a.seq)[0];
+      return match?.id;
+    }),
+    getLastMainThreadToolMessageId: vi.fn(async (topicId: string) => {
+      // Most recent main-thread tool message — the signal-turn anchor.
+      const match = [...messages.values()]
+        .filter((m) => m.topicId === topicId && m.role === 'tool' && !m.threadId)
         .sort((a, b) => b.seq - a.seq)[0];
       return match?.id;
     }),
@@ -177,6 +186,29 @@ const stepBatch = (stepIndex: number, ccMsgId: string, toolCallId: string): Agen
   }),
 ];
 
+/**
+ * A toolless, signal-tagged reactive turn (post-task summary the LLM emits after
+ * CC delivers a long-running tool's `task_notification`). The writer stamps
+ * `externalSignal` at stream_start, so the reducer parents it off
+ * `lastToolMsgIdEver` — a tool message — instead of the spine assistant.
+ */
+const signalTurnBatch = (
+  stepIndex: number,
+  ccMsgId: string,
+  sourceToolCallId: string,
+): AgentStreamEvent[] => [
+  buildEvent('stream_start', stepIndex, {
+    externalSignal: { sourceToolCallId, sourceToolName: 'Bash', type: 'task-completion' },
+    messageId: ccMsgId,
+    newStep: true,
+    provider: 'claude-code',
+  }),
+  buildEvent('stream_chunk', stepIndex, {
+    chunkType: 'text',
+    content: 'All done — task finished.',
+  }),
+];
+
 describe('HeterogeneousPersistenceHandler — chain anchor survives a regressed currentAssistantId', () => {
   beforeEach(() => __resetOperationStatesForTesting());
   afterEach(() => __resetOperationStatesForTesting());
@@ -223,5 +255,42 @@ describe('HeterogeneousPersistenceHandler — chain anchor survives a regressed 
       (m) => m.role === 'assistant' && m.parentId === a1.id,
     );
     expect(a1AssistantChildren).toHaveLength(1);
+  });
+
+  it("roots a cold-replica signal turn on the run's last tool, not the spine assistant", async () => {
+    const h = createHarness();
+
+    // Step 1 on a cold replica: a normal tool-using turn → a1 (parent SEED) plus
+    // its tool message.
+    await h.handler.ingest({
+      assistantMessageId: SEED,
+      events: stepBatch(1, 'cc-A', 'tc-A'),
+      operationId: OP,
+      topicId: TOPIC,
+    });
+    __resetOperationStatesForTesting();
+
+    // Step 2 on ANOTHER cold replica: a toolless task-completion signal turn.
+    // In-memory `lastToolMsgIdEver` is undefined here (this replica never saw the
+    // step-1 tool batch). Without DB recovery the turn falls back to the spine
+    // assistant (a1) and the read side drops it; with recovery it roots on the
+    // run's last tool.
+    await h.handler.ingest({
+      assistantMessageId: SEED,
+      events: signalTurnBatch(2, 'cc-B', 'tc-A'),
+      operationId: OP,
+      topicId: TOPIC,
+    });
+
+    const signalMsg = [...h.messages.values()].find(
+      (m) => m.role === 'assistant' && m.metadata?.signal,
+    );
+    expect(signalMsg).toBeDefined();
+
+    // Its parent must be a TOOL message (the run's last tool), not an assistant —
+    // otherwise it is orphaned (excluded from spine continuation AND from the
+    // tool-child task-completion collection).
+    const parent = h.messages.get(signalMsg!.parentId!);
+    expect(parent?.role).toBe('tool');
   });
 });

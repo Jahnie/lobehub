@@ -535,10 +535,21 @@ export class HeterogeneousPersistenceHandler {
     // `currentAssistantId`, which can regress to the seed placeholder on a cold
     // / non-sticky replica — see the multi-replica caveat on the class) keeps
     // consecutive cold-replica steps chained linearly instead of forking onto a
-    // stale node. Signal turns still anchor off `lastToolMsgIdEver`, which is
-    // maintained in-memory across the run's tool batches.
+    // stale node.
     const spineId = await this.deps.messageModel.getLastMainThreadSpineMessageId?.(state.topicId);
     if (spineId) state.main.lastSpineMessageId = spineId;
+
+    // Recover the signal-turn anchor from the DB too. A signal-tagged reactive
+    // turn (Monitor stdout callback, post-task summary) parents off the run's
+    // most recent tool (`lastToolMsgIdEver`) so the reader renders it as a
+    // tool-child. That accumulator is maintained in-memory across the run's tool
+    // batches — but a cold replica that processes the signal turn WITHOUT having
+    // seen the prior tool batch has it `undefined`, so the turn would fall back
+    // to the spine (an assistant) and be dropped (excluded from spine
+    // continuation AND from tool-only task-completion collection). Reading the
+    // latest main-thread tool from the DB keeps reactive turns rooted on a tool.
+    const lastToolId = await this.deps.messageModel.getLastMainThreadToolMessageId?.(state.topicId);
+    if (lastToolId) state.main.lastToolMsgIdEver = lastToolId;
   }
 
   /**
