@@ -382,7 +382,7 @@ export default {
   'plans.workspace.maxMembers': 'Up to {{count}} members',
   'plans.workspace.noSharedCredits': 'No shared credits',
   'plans.workspace.sharedCredits': '~{{count}} Credits / mo',
-  'plans.workspace.solo': 'Solo (1 member)',
+  'plans.workspace.solo': 'Up to 3 members (including you)',
   'plans.target': 'Target Plan',
   'plans.unlimited': 'Unlimited',
   'qa.desc':
