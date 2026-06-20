@@ -1468,6 +1468,9 @@ When I am ___, I need ___
   'workspace.billingPage.plans.priceYearlyHeadline': '${{fee}} / year',
   'workspace.billingPage.plans.proCapacity': 'Up to {{max}} seats · ${{seatFee}}/seat / month',
   'workspace.billingPage.plans.seatPriceCaption': 'Extra seats ${{seatFee}}/seat/month',
+  'workspace.billingPage.plans.switchPlanCta': 'Switch plan',
+  'workspace.billingPage.plans.switchToMonthlyCta': 'Switch to monthly',
+  'workspace.billingPage.plans.switchToYearlyCta': 'Switch to yearly',
   'workspace.billingPage.plans.pricingBannerCta': 'View pricing',
   'workspace.billingPage.plans.pricingBannerDesc':
     'See detailed input/output rates and message estimates for every supported model.',
