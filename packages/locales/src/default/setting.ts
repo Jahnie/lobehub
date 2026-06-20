@@ -1250,6 +1250,16 @@ When I am ___, I need ___
   'workspace.billingPage.billing.cancelConfirm':
     'Subscription will keep running until the end of the current billing cycle, then stop renewing. You can resume at any time before the cycle ends.',
   'workspace.billingPage.billing.cancelCta': 'Cancel subscription',
+  'workspace.billingPage.billing.cancelPlanModal.body':
+    'Your workspace will stay on the current plan until the end of the current billing period, then move to Free.',
+  'workspace.billingPage.billing.cancelPlanModal.bodyWithDate':
+    'Your workspace will stay on the current plan until {{date}}, then move to Free at the end of the current billing period.',
+  'workspace.billingPage.billing.cancelPlanModal.continueCta': 'Continue',
+  'workspace.billingPage.billing.cancelPlanModal.keepCta': 'Keep plan',
+  'workspace.billingPage.billing.cancelPlanModal.limitDesc':
+    'Free workspaces are limited to {{maxSeats}} seats and do not include monthly workspace credits. You can keep using the workspace and upgrade again in the future.',
+  'workspace.billingPage.billing.cancelPlanModal.seatLimit': '{{maxSeats}} seats',
+  'workspace.billingPage.billing.cancelPlanModal.title': 'Cancel plan?',
   'workspace.billingPage.billing.cancelSuccess': 'Cancellation scheduled.',
   'workspace.billingPage.billing.cancelTitle': 'Cancel subscription?',
   'workspace.billingPage.billing.change.applyCta': 'Apply changes',
@@ -1260,6 +1270,19 @@ When I am ___, I need ___
   'workspace.billingPage.billing.change.title': 'Adjust subscription',
   'workspace.billingPage.billing.changeFailed': 'Failed to update subscription.',
   'workspace.billingPage.billing.changeSuccess': 'Subscription update saved.',
+  'workspace.billingPage.billing.upgradePlanModal.cancelCta': 'Cancel',
+  'workspace.billingPage.billing.upgradePlanModal.checkoutCharge':
+    'You will be redirected to checkout to complete payment.',
+  'workspace.billingPage.billing.upgradePlanModal.confirmCta': 'Upgrade',
+  'workspace.billingPage.billing.upgradePlanModal.proratedCharge':
+    'A prorated charge will be applied immediately to your current payment method.',
+  'workspace.billingPage.billing.upgradePlanModal.rate':
+    'Your new rate will be ${{total}} / {{period}}.',
+  'workspace.billingPage.billing.upgradePlanModal.rateWithSeats':
+    'Your new rate will be ${{platformFee}} platform fee plus ${{seatFee}} per extra seat/month for {{extraSeats}} extra seats, for a total of ${{total}} / {{period}}.',
+  'workspace.billingPage.billing.upgradePlanModal.target':
+    'Your workspace will be upgraded immediately to the {{plan}} {{interval}} plan.',
+  'workspace.billingPage.billing.upgradePlanModal.title': 'Upgrade?',
   'workspace.billingPage.billing.downgrade.confirmBody':
     'This immediately downgrades the workspace to Solo. The current billing period is non-refundable, and every member except the primary owner will be removed from this workspace.',
   'workspace.billingPage.billing.downgrade.confirmCta': 'Downgrade now',
@@ -1452,7 +1475,7 @@ When I am ___, I need ___
   'workspace.billingPage.plans.creditsTooltip':
     'Workspace-wide monthly credits. Adding seats does NOT grow the pool — overage flows through AutoTopUp.',
   'workspace.billingPage.plans.capacityOnly': 'Up to {{max}} seats',
-  'workspace.billingPage.plans.downgradeToFreeCta': 'Downgrade to Free',
+  'workspace.billingPage.plans.downgradeToFreeCta': 'Downgrade',
   'workspace.billingPage.plans.headline': 'Choose a plan',
   'workspace.billingPage.plans.hobbyCapacity': 'Up to 3 seats',
   'workspace.billingPage.plans.hobbyCta': 'Free',
@@ -1473,7 +1496,7 @@ When I am ___, I need ___
   'workspace.billingPage.plans.proDesc': 'Designed for professional teams that frequently use AI',
   'workspace.billingPage.plans.proCapacity': 'Up to {{max}} seats · ${{seatFee}}/seat / month',
   'workspace.billingPage.plans.seatPriceCaption': 'Extra seats ${{seatFee}}/seat/month',
-  'workspace.billingPage.plans.switchPlanCta': 'Switch plan',
+  'workspace.billingPage.plans.switchPlanCta': 'Downgrade',
   'workspace.billingPage.plans.switchToMonthlyCta': 'Switch to monthly',
   'workspace.billingPage.plans.switchToYearlyCta': 'Switch to yearly',
   'workspace.billingPage.plans.pricingBannerCta': 'View pricing',
@@ -1481,8 +1504,8 @@ When I am ___, I need ___
     'See detailed input/output rates and message estimates for every supported model.',
   'workspace.billingPage.plans.pricingBannerTitle': 'Looking for per-model pricing?',
   'workspace.billingPage.plans.pricingNote': 'For per-model pricing, see {{url}}',
-  'workspace.billingPage.plans.upgradeBusinessCta': 'Upgrade to Business',
-  'workspace.billingPage.plans.upgradeCta': 'Upgrade to Pro',
+  'workspace.billingPage.plans.upgradeBusinessCta': 'Upgrade',
+  'workspace.billingPage.plans.upgradeCta': 'Upgrade',
   'workspace.billingPage.plans.upgradeFailed': 'Failed to start checkout',
   'workspace.billingPage.summary.cancelling': 'Cancelling',
   'workspace.billingPage.summary.upgradeCta': 'See plans',
@@ -2130,6 +2153,21 @@ When I am ___, I need ___
   'workspace.onboarding.step3.skipInstall': "Don't install any",
   'workspace.onboarding.step3.installed': 'Added {{count}} agent(s) to your workspace',
   'workspace.onboarding.step3.empty': 'No recommendations available right now.',
+  'workspace.onboarding.step4Invite.addMore': 'Add another email',
+  'workspace.onboarding.step4Invite.emailPlaceholder': 'teammate@company.com',
+  'workspace.onboarding.step4Invite.finish': 'Finish',
+  'workspace.onboarding.step4Invite.heading': 'Invite your team',
+  'workspace.onboarding.step4Invite.invitedCount': 'Invited {{count}} member(s)',
+  'workspace.onboarding.step4Invite.subtitle':
+    'Bring teammates into this workspace now, or invite them later from member settings.',
+  'workspace.onboarding.step4Invite.subtitleWithLimit':
+    'Hobby includes up to {{maxSeats}} seats, including you. Invite teammates now, or add them later from member settings.',
+  'workspace.onboarding.step4.heading': '{{name}} is ready!',
+  'workspace.onboarding.step4.subtitle':
+    'Your workspace is set up. Jump in and start collaborating with your team.',
+  'workspace.onboarding.step4.subtitleWithAgents':
+    '{{count}} agent(s) ready to help. Jump in and start collaborating with your team.',
+  'workspace.onboarding.step4.cta': 'Enter workspace',
   'workspaceSetting.breadcrumb.settings': 'Settings',
   'workspaceSetting.group.admin': 'Admin',
   'workspaceSetting.group.agent': 'Agent',
