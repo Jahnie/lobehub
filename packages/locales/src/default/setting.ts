@@ -1431,6 +1431,7 @@ When I am ___, I need ___
   'workspace.billingPage.plans.businessTag': 'Higher limits',
   'workspace.billingPage.plans.businessTagline':
     'Advanced collaboration and higher workspace limits.',
+  'workspace.billingPage.plans.billingOwnerOnly': 'Billing owner only',
   'workspace.billingPage.plans.enterprise.contactCta': 'Contact',
   'workspace.billingPage.plans.enterprise.features.brandTheming': 'Brand theming',
   'workspace.billingPage.plans.enterprise.features.commercialLicense': 'Commercial license',
@@ -1449,10 +1450,11 @@ When I am ___, I need ___
   'workspace.billingPage.plans.creditsTitle': 'Workspace credits',
   'workspace.billingPage.plans.creditsTooltip':
     'Workspace-wide monthly credits. Adding seats does NOT grow the pool — overage flows through AutoTopUp.',
+  'workspace.billingPage.plans.capacityOnly': 'Up to {{max}} seats',
   'workspace.billingPage.plans.headline': 'Choose a plan',
-  'workspace.billingPage.plans.hobbyCapacity': 'First 3 members free, including you',
-  'workspace.billingPage.plans.hobbyCta': 'Free forever',
-  'workspace.billingPage.plans.hobbyCreditsHint': 'No monthly credits included by default',
+  'workspace.billingPage.plans.hobbyCapacity': 'Up to 3 seats',
+  'workspace.billingPage.plans.hobbyCta': 'Free',
+  'workspace.billingPage.plans.hobbyCreditsHint': 'No monthly credits included',
   'workspace.billingPage.plans.hobbyCreditsTooltip':
     'Hobby workspaces do not include monthly credits. Configure your own model API or top up credits as needed.',
   'workspace.billingPage.plans.manageSeatsLink': 'Manage seats',
@@ -1463,12 +1465,15 @@ When I am ___, I need ___
   'workspace.billingPage.plans.priceProCaption': 'Platform fee · billed monthly',
   'workspace.billingPage.plans.priceBusinessHeadline': '${{fee}} / mo',
   'workspace.billingPage.plans.priceProHeadline': '${{fee}} / mo',
+  'workspace.billingPage.plans.priceYearlyHeadline': '${{fee}} / year',
   'workspace.billingPage.plans.proCapacity': 'Up to {{max}} seats · ${{seatFee}}/seat / month',
+  'workspace.billingPage.plans.seatPriceCaption': 'Extra seats ${{seatFee}}/seat/month',
   'workspace.billingPage.plans.pricingBannerCta': 'View pricing',
   'workspace.billingPage.plans.pricingBannerDesc':
     'See detailed input/output rates and message estimates for every supported model.',
   'workspace.billingPage.plans.pricingBannerTitle': 'Looking for per-model pricing?',
   'workspace.billingPage.plans.pricingNote': 'For per-model pricing, see {{url}}',
+  'workspace.billingPage.plans.upgradeBusinessCta': 'Upgrade to Business',
   'workspace.billingPage.plans.upgradeCta': 'Upgrade to Pro',
   'workspace.billingPage.plans.upgradeFailed': 'Failed to start checkout',
   'workspace.billingPage.summary.cancelling': 'Cancelling',
