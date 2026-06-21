@@ -1277,11 +1277,11 @@ When I am ___, I need ___
   'workspace.billingPage.billing.upgradePlanModal.proratedCharge':
     'A prorated charge will be applied immediately to your current payment method.',
   'workspace.billingPage.billing.upgradePlanModal.rate':
-    'Your new rate will be ${{total}} / {{period}}.',
+    'Your new rate will be ${{total}} / {{period}}. {{charge}}',
   'workspace.billingPage.billing.upgradePlanModal.rateWithSeats':
-    'Your new rate will be ${{platformFee}} platform fee plus ${{seatFee}} per extra seat/month for {{extraSeats}} extra seats, for a total of ${{total}} / {{period}}.',
+    'Your new rate will be ${{platformFee}} platform fee plus ${{seatFee}}/seat/month for {{extraSeats}} seats, totaling ${{total}} / {{period}}. {{charge}}',
   'workspace.billingPage.billing.upgradePlanModal.target':
-    'Your workspace will be upgraded immediately to the {{plan}} {{interval}} plan.',
+    'Your workspace will upgrade immediately to the {{plan}} {{interval}} plan.',
   'workspace.billingPage.billing.upgradePlanModal.title': 'Upgrade?',
   'workspace.billingPage.billing.downgrade.confirmBody':
     'This immediately downgrades the workspace to Solo. The current billing period is non-refundable, and every member except the primary owner will be removed from this workspace.',
@@ -1484,6 +1484,10 @@ When I am ___, I need ___
     'Hobby workspaces do not include monthly credits. Configure your own model API or top up credits as needed.',
   'workspace.billingPage.plans.hobbyDesc':
     'For small teams getting started with workspace collaboration',
+  'workspace.billingPage.plans.headerNote.active':
+    'You are on the {{plan}} plan. If you have any questions or would like further support with your plan, <contact>contact us</contact>',
+  'workspace.billingPage.plans.headerNote.renewing':
+    'You are on the {{plan}} plan, renewing {{date}}. If you have any questions or would like further support with your plan, <contact>contact us</contact>',
   'workspace.billingPage.plans.manageSeatsLink': 'Manage seats',
   'workspace.billingPage.plans.modelsHint': 'Estimated messages from the shared pool',
   'workspace.billingPage.plans.modelsTitle': 'Featured models',
@@ -1495,7 +1499,7 @@ When I am ___, I need ___
   'workspace.billingPage.plans.priceYearlyHeadline': '${{fee}} / year',
   'workspace.billingPage.plans.proDesc': 'Designed for professional teams that frequently use AI',
   'workspace.billingPage.plans.proCapacity': 'Up to {{max}} seats · ${{seatFee}}/seat / month',
-  'workspace.billingPage.plans.seatPriceCaption': 'Extra seats ${{seatFee}}/seat/month',
+  'workspace.billingPage.plans.seatPriceCaption': '${{seatFee}}/seat/month',
   'workspace.billingPage.plans.switchPlanCta': 'Downgrade',
   'workspace.billingPage.plans.switchToMonthlyCta': 'Switch to monthly',
   'workspace.billingPage.plans.switchToYearlyCta': 'Switch to yearly',
@@ -1542,6 +1546,9 @@ When I am ___, I need ___
   'workspace.billingPage.usage.last30': 'Last 30 days',
   'workspace.billingPage.usage.logsTitle': 'Recent activity',
   'workspace.billingPage.usage.member': 'Member',
+  'workspace.billingPage.usage.member.moreMembers_one': '{{count}} more member',
+  'workspace.billingPage.usage.member.moreMembers_other': '{{count}} more members',
+  'workspace.billingPage.usage.member.showLess': 'Show less',
   'workspace.billingPage.usage.messages': 'Messages',
   'workspace.billingPage.usage.model.moreModels_one': '{{count}} more model',
   'workspace.billingPage.usage.model.moreModels_other': '{{count}} more models',
@@ -2160,6 +2167,8 @@ When I am ___, I need ___
   'workspace.onboarding.step4Invite.invitedCount': 'Invited {{count}} member(s)',
   'workspace.onboarding.step4Invite.subtitle':
     'Bring teammates into this workspace now, or invite them later from member settings.',
+  'workspace.onboarding.step4Invite.subtitleWithExtraSeats':
+    'Your plan includes {{includedSeats}} free seats and supports up to {{maxSeats}} seats with purchased extra seats. Invite teammates now, or add them later from member settings.',
   'workspace.onboarding.step4Invite.subtitleWithLimit':
     'Hobby includes up to {{maxSeats}} seats, including you. Invite teammates now, or add them later from member settings.',
   'workspace.onboarding.step4.heading': '{{name}} is ready!',
