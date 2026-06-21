@@ -174,7 +174,7 @@ export const buildRunLifecycle = (
   return {
     afterUserMessagePersisted: async (event: UserMessagePersistedEvent) => {
       // Topic title auto-generation. Single home for all three runtimes
-      // (LOBE-10379 "补齐缺列 title"): the client used to do this inline in
+      // (LOBE-10379 "backfill missing title column"): the client used to do this inline in
       // sendMessage and gateway/hetero had no LLM-summarized title at all.
       // Top-level only — a nested sub-agent / `/compact` run must not retitle the
       // user's topic. See RunScope.
@@ -230,7 +230,7 @@ export const buildRunLifecycle = (
     },
     afterRunComplete: async (event: RunCompleteEvent) => {
       // Desktop notification + dock badge. Single home for all three runtimes'
-      // completion notification (LOBE-10379 "通知去重，统一到 afterRunComplete").
+      // completion notification (LOBE-10379 "deduplicate and unify notifications into afterRunComplete").
       // Top-level-only: a nested sub-agent finishing is not a user-facing run
       // completion — the parent run is still going, so it must not fire a
       // "generation finished" notification / badge. See RunScope.

@@ -1357,7 +1357,7 @@ export const executeHeterogeneousAgent = async (
         }
 
         // Signal completion to the user — dock badge + (window-hidden) notification.
-        // Relocated into the shared `afterRunComplete` hook (LOBE-10379 "通知统一到
+        // Relocated into the shared `afterRunComplete` hook (LOBE-10379 "unify notifications into
         // afterRunComplete"): it does the same showNotification + setBadgeCount
         // fan-out for non-client runtimes. The body is resolved here from the
         // in-memory accumulated content (the store snapshot isn't durable yet).
@@ -1438,7 +1438,7 @@ export const executeHeterogeneousAgent = async (
       .getSessionInfo(agentSessionId)
       .catch(() => undefined);
     if (sessionInfo?.agentSessionId && context.topicId) {
-      // Best-effort (LOBE-10379 "heteroSessionId 保存…失败不阻断 core"): a rejected
+      // Best-effort (LOBE-10379 "heteroSessionId save — failure must not block core"): a rejected
       // metadata save must NOT throw past the queue drain below — guarding the
       // await here keeps the resume-id persistence from blocking the follow-up
       // send. The save still runs BEFORE the drain so the next turn's

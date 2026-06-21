@@ -469,7 +469,7 @@ export class ConversationLifecycleActionImpl {
 
     // Shared run lifecycle for the post-persist topic-title hook. Built once here
     // so all three runtime branches fire the SAME `afterUserMessagePersisted`
-    // (LOBE-10379 "补齐缺列 title" — gateway/hetero previously had no LLM title).
+    // (LOBE-10379 "backfill missing title column" — gateway/hetero previously had no LLM title).
     // `parentMessage*` are unused by this hook.
     const sendRunScope: RunScope =
       operationContext.scope === 'sub_agent' ? 'sub_agent' : 'top_level';
