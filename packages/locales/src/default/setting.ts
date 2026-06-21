@@ -1262,28 +1262,45 @@ When I am ___, I need ___
   'workspace.billingPage.billing.cancelPlanModal.title': 'Cancel plan?',
   'workspace.billingPage.billing.cancelSuccess': 'Cancellation scheduled.',
   'workspace.billingPage.billing.cancelTitle': 'Cancel subscription?',
+  'workspace.billingPage.billing.billingPeriodModal.body':
+    "Your workspace's billing period will be changed from {{current}} to {{target}}.",
+  'workspace.billingPage.billing.billingPeriodModal.cancelCta': 'Cancel',
+  'workspace.billingPage.billing.billingPeriodModal.confirmCta': 'Change billing period',
+  'workspace.billingPage.billing.billingPeriodModal.proratedCharge':
+    'The new yearly billing period starts immediately. A prorated charge will be applied to your current payment method.',
+  'workspace.billingPage.billing.billingPeriodModal.scheduledChange':
+    'The change will take effect after the current period ends.',
+  'workspace.billingPage.billing.billingPeriodModal.scheduledChangeWithDate':
+    'The change will take effect after the current period ends on {{date}}.',
+  'workspace.billingPage.billing.billingPeriodModal.title': 'Change the billing period?',
   'workspace.billingPage.billing.change.applyCta': 'Apply changes',
   'workspace.billingPage.billing.change.cancelScheduledHint':
     'Resume the subscription before changing plan or seats.',
+  'workspace.billingPage.billing.change.immediateChangeSeatReductionHint':
+    'Reduce seats separately after this immediate plan change.',
+  'workspace.billingPage.billing.change.minPurchasedSeatsHint':
+    'Current members require at least {{count}} extra seats.',
   'workspace.billingPage.billing.change.preview': '{{seats}} seats · {{interval}} billing preview',
   'workspace.billingPage.billing.change.purchasedSeats': 'Prepaid extra seats',
+  'workspace.billingPage.billing.change.seatReductionHint':
+    'Reducing seats takes effect on the next billing cycle. The current cycle is not refunded.',
   'workspace.billingPage.billing.change.title': 'Adjust plan',
   'workspace.billingPage.billing.changeFailed': 'Failed to update subscription.',
   'workspace.billingPage.billing.changeSuccess': 'Subscription update saved.',
   'workspace.billingPage.billing.upgradePlanModal.cancelCta': 'Cancel',
   'workspace.billingPage.billing.upgradePlanModal.checkoutCharge':
     'You will be redirected to checkout to complete payment.',
-  'workspace.billingPage.billing.upgradePlanModal.buySeatsCta': 'Buy seats',
+  'workspace.billingPage.billing.upgradePlanModal.buySeatsCta': 'Apply changes',
   'workspace.billingPage.billing.upgradePlanModal.buySeatsTarget':
-    'Buy more seats for the {{plan}} {{interval}} plan.',
-  'workspace.billingPage.billing.upgradePlanModal.buySeatsTitle': 'Buy more seats?',
+    'Adjust prepaid seats for the {{plan}} {{interval}} plan.',
+  'workspace.billingPage.billing.upgradePlanModal.buySeatsTitle': 'Adjust seats',
   'workspace.billingPage.billing.upgradePlanModal.confirmCta': 'Upgrade',
   'workspace.billingPage.billing.upgradePlanModal.currentSeatsLine': 'Current / total seats',
   'workspace.billingPage.billing.upgradePlanModal.decreaseSeats': 'Decrease seats',
   'workspace.billingPage.billing.upgradePlanModal.increaseSeats': 'Increase seats',
   'workspace.billingPage.billing.upgradePlanModal.proratedCharge':
     'A prorated charge will be applied immediately to your current payment method.',
-  'workspace.billingPage.billing.upgradePlanModal.purchasedSeatsLine': 'Buy more seats',
+  'workspace.billingPage.billing.upgradePlanModal.purchasedSeatsLine': 'Prepaid extra seats',
   'workspace.billingPage.billing.upgradePlanModal.seatFeeSummary': '${{seatFee}}/seat/month',
   'workspace.billingPage.billing.upgradePlanModal.target':
     'Your workspace will upgrade immediately to the {{plan}} {{interval}} plan.',
@@ -1461,7 +1478,7 @@ When I am ___, I need ___
   'workspace.billingPage.plans.businessDesc': 'For growing teams that need higher workspace limits',
   'workspace.billingPage.plans.businessTagline':
     'Advanced collaboration and higher workspace limits.',
-  'workspace.billingPage.plans.buyMoreSeatsCta': 'Buy more seats',
+  'workspace.billingPage.plans.buyMoreSeatsCta': 'Adjust seats',
   'workspace.billingPage.plans.billingOwnerOnly': 'Billing owner only',
   'workspace.billingPage.plans.enterprise.contactCta': 'Contact',
   'workspace.billingPage.plans.enterprise.features.brandTheming': 'Brand theming',
