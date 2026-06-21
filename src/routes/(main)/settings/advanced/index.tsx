@@ -49,6 +49,7 @@ const Page = memo(() => {
     enablePlatformAgent,
     enableImessage,
     enableFleet,
+    enableFoldFinishedTurn,
     updateLab,
   ] = useUserStore((s) => [
     preferenceSelectors.isPreferenceInit(s),
@@ -57,6 +58,7 @@ const Page = memo(() => {
     labPreferSelectors.enablePlatformAgent(s),
     labPreferSelectors.enableImessage(s),
     labPreferSelectors.enableFleet(s),
+    labPreferSelectors.enableFoldFinishedTurn(s),
     s.updateLab,
   ]);
 
@@ -163,6 +165,19 @@ const Page = memo(() => {
       className: styles.labItem,
       desc: tLabs('features.inputMarkdown.desc'),
       label: tLabs('features.inputMarkdown.title'),
+      minWidth: undefined,
+    },
+    {
+      children: (
+        <Switch
+          checked={enableFoldFinishedTurn}
+          loading={!isPreferenceInit}
+          onChange={(checked) => updateLab({ enableFoldFinishedTurn: checked })}
+        />
+      ),
+      className: styles.labItem,
+      desc: tLabs('features.foldFinishedTurn.desc'),
+      label: tLabs('features.foldFinishedTurn.title'),
       minWidth: undefined,
     },
     ...(isDesktop
