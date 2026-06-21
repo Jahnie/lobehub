@@ -1267,22 +1267,28 @@ When I am ___, I need ___
     'Resume the subscription before changing plan or seats.',
   'workspace.billingPage.billing.change.preview': '{{seats}} seats · {{interval}} billing preview',
   'workspace.billingPage.billing.change.purchasedSeats': 'Prepaid extra seats',
-  'workspace.billingPage.billing.change.title': 'Adjust subscription',
+  'workspace.billingPage.billing.change.title': 'Adjust plan',
   'workspace.billingPage.billing.changeFailed': 'Failed to update subscription.',
   'workspace.billingPage.billing.changeSuccess': 'Subscription update saved.',
   'workspace.billingPage.billing.upgradePlanModal.cancelCta': 'Cancel',
   'workspace.billingPage.billing.upgradePlanModal.checkoutCharge':
     'You will be redirected to checkout to complete payment.',
+  'workspace.billingPage.billing.upgradePlanModal.buySeatsCta': 'Buy seats',
+  'workspace.billingPage.billing.upgradePlanModal.buySeatsTarget':
+    'Buy more seats for the {{plan}} {{interval}} plan.',
+  'workspace.billingPage.billing.upgradePlanModal.buySeatsTitle': 'Buy more seats?',
   'workspace.billingPage.billing.upgradePlanModal.confirmCta': 'Upgrade',
+  'workspace.billingPage.billing.upgradePlanModal.currentSeatsLine': 'Current / total seats',
+  'workspace.billingPage.billing.upgradePlanModal.decreaseSeats': 'Decrease seats',
+  'workspace.billingPage.billing.upgradePlanModal.increaseSeats': 'Increase seats',
   'workspace.billingPage.billing.upgradePlanModal.proratedCharge':
     'A prorated charge will be applied immediately to your current payment method.',
-  'workspace.billingPage.billing.upgradePlanModal.rate':
-    'Your new rate will be ${{total}} / {{period}}. {{charge}}',
-  'workspace.billingPage.billing.upgradePlanModal.rateWithSeats':
-    'Your new rate will be ${{platformFee}} platform fee plus ${{seatFee}}/seat/month for {{extraSeats}} seats, totaling ${{total}} / {{period}}. {{charge}}',
+  'workspace.billingPage.billing.upgradePlanModal.purchasedSeatsLine': 'Buy more seats',
+  'workspace.billingPage.billing.upgradePlanModal.seatFeeSummary': '${{seatFee}}/seat/month',
   'workspace.billingPage.billing.upgradePlanModal.target':
     'Your workspace will upgrade immediately to the {{plan}} {{interval}} plan.',
   'workspace.billingPage.billing.upgradePlanModal.title': 'Upgrade?',
+  'workspace.billingPage.billing.upgradePlanModal.totalSummary': '{{seats}} seats after upgrade',
   'workspace.billingPage.billing.downgrade.confirmBody':
     'This immediately downgrades the workspace to Solo. The current billing period is non-refundable, and every member except the primary owner will be removed from this workspace.',
   'workspace.billingPage.billing.downgrade.confirmCta': 'Downgrade now',
@@ -1455,6 +1461,7 @@ When I am ___, I need ___
   'workspace.billingPage.plans.businessDesc': 'For growing teams that need higher workspace limits',
   'workspace.billingPage.plans.businessTagline':
     'Advanced collaboration and higher workspace limits.',
+  'workspace.billingPage.plans.buyMoreSeatsCta': 'Buy more seats',
   'workspace.billingPage.plans.billingOwnerOnly': 'Billing owner only',
   'workspace.billingPage.plans.enterprise.contactCta': 'Contact',
   'workspace.billingPage.plans.enterprise.features.brandTheming': 'Brand theming',
@@ -1563,7 +1570,7 @@ When I am ___, I need ___
   'workspace.billingPage.usage.selfTitle': 'Your usage',
   'workspace.billingPage.usage.spend': 'Spend',
   'workspace.billingPage.usage.summaryCardTitle': 'Credits usage statistics',
-  'workspace.billingPage.usage.summaryTitle': 'Workspace credits usage',
+  'workspace.billingPage.usage.summaryTitle': 'Usage',
   'workspace.billingPage.usage.topSpender': 'Top spender: {{name}} ({{amount}})',
   'workspace.billingPage.usage.trendTitle': 'Daily spend trend',
   'workspace.billingPage.usage.trendTooltip': '{{date}}: {{value}}',
