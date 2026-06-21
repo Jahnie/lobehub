@@ -1282,6 +1282,7 @@ When I am ___, I need ___
     'Current members require at least {{count}} extra seats.',
   'workspace.billingPage.billing.change.preview': '{{seats}} seats · {{interval}} billing preview',
   'workspace.billingPage.billing.change.purchasedSeats': 'Prepaid extra seats',
+  'workspace.billingPage.billing.change.purchasedSeatsWithMax': 'Prepaid seats (max {{max}} seats)',
   'workspace.billingPage.billing.change.seatReductionHint':
     'Reducing seats takes effect on the next billing cycle. The current cycle is not refunded.',
   'workspace.billingPage.billing.change.title': 'Adjust plan',
