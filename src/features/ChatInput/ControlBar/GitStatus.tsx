@@ -302,10 +302,12 @@ const GitStatus = memo<GitStatusProps>(({ agentId, path, sourcePath, isGithub, d
       agentId={agentId}
       currentBranch={data.branch}
       detached={data.detached}
+      deviceId={deviceId}
       isGithub={isGithub}
       path={path}
       sourcePath={sourcePath ?? path}
       worktrees={worktrees}
+      onWorktreesChange={mutateWorktrees}
     />
   ) : data.detached ? (
     // Detached HEAD → plain branch label (nothing to switch to).

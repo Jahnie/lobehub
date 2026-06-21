@@ -14,6 +14,7 @@ import {
   moveLocalFiles,
   pullGitBranch,
   pushGitBranch,
+  removeGitWorktree,
   renameGitBranch,
   renameLocalFile,
   revertGitFile,
@@ -57,6 +58,7 @@ export const DEVICE_RPC_METHODS = [
   'checkoutGitBranch',
   'renameGitBranch',
   'deleteGitBranch',
+  'removeGitWorktree',
   'pullGitBranch',
   'pushGitBranch',
   'revertGitFile',
@@ -163,6 +165,10 @@ export const executeDeviceRpc = async (
 
     case 'deleteGitBranch': {
       return deleteGitBranch(params as { branch: string; path: string });
+    }
+
+    case 'removeGitWorktree': {
+      return removeGitWorktree(params as { path: string; worktreePath: string });
     }
 
     case 'pullGitBranch': {
