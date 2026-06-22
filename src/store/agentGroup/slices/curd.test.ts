@@ -2,7 +2,6 @@ import { type AgentGroupDetail } from '@lobechat/types';
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { getActiveWorkspaceId } from '@/business/client/hooks/useActiveWorkspaceId';
 import { DEFAULT_CHAT_GROUP_CHAT_CONFIG } from '@/const/settings';
 import type { ChatGroupItem } from '@/database/schemas/chatGroup';
 import type * as SwrModule from '@/libs/swr';
@@ -114,16 +113,14 @@ describe('ChatGroupCurdSlice', () => {
   });
 
   describe('refreshGroups', () => {
-    it('should invalidate the active workspace-scoped group list', async () => {
-      vi.mocked(getActiveWorkspaceId).mockReturnValue('workspace-1');
-
+    it('should invalidate the group list', async () => {
       const { result } = renderHook(() => useAgentGroupStore());
 
       await act(async () => {
         await result.current.refreshGroups();
       });
 
-      expect(mutate).toHaveBeenCalledWith(['group:list', true, 'workspace-1']);
+      expect(mutate).toHaveBeenCalledWith(['group:list', true]);
     });
   });
 
