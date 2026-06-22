@@ -333,7 +333,7 @@
   "plans.unlimited": "نامحدود",
   "plans.workspace.features.inviteMembers": "دعوت از اعضا",
   "plans.workspace.features.roles": "نقش‌ها و مجوزها",
-  "plans.workspace.includesFrom.hobby": "همه چیز در Hobby، به‌علاوه:",
+  "plans.workspace.includesFrom.free": "همه چیز در Hobby، به‌علاوه:",
   "plans.workspace.maxMembers": "تا {{count}} عضو",
   "plans.workspace.noSharedCredits": "بدون اعتبارهای مشترک",
   "plans.workspace.sharedCredits": "~{{count}} اعتبار / ماه",

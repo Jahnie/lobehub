@@ -378,7 +378,7 @@ export default {
   'plans.support.ultimate': 'Priority Chat and Email Support',
   'plans.workspace.features.inviteMembers': 'Invite Members',
   'plans.workspace.features.roles': 'Roles & Permissions',
-  'plans.workspace.includesFrom.hobby': 'Everything in Free, plus:',
+  'plans.workspace.includesFrom.free': 'Everything in Free, plus:',
   'plans.workspace.maxMembers': 'Up to {{count}} members',
   'plans.workspace.noSharedCredits': 'No shared credits',
   'plans.workspace.sharedCredits': '~{{count}} Credits / mo',

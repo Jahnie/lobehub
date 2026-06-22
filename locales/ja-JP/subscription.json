@@ -333,7 +333,7 @@
   "plans.unlimited": "無制限",
   "plans.workspace.features.inviteMembers": "メンバーを招待",
   "plans.workspace.features.roles": "役割と権限",
-  "plans.workspace.includesFrom.hobby": "Hobbyに含まれるすべての機能に加えて:",
+  "plans.workspace.includesFrom.free": "Hobbyに含まれるすべての機能に加えて:",
   "plans.workspace.maxMembers": "最大{{count}}名のメンバー",
   "plans.workspace.noSharedCredits": "共有クレジットなし",
   "plans.workspace.sharedCredits": "~{{count}}クレジット / 月",

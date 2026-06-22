@@ -333,7 +333,7 @@
   "plans.unlimited": "Không giới hạn",
   "plans.workspace.features.inviteMembers": "Mời thành viên",
   "plans.workspace.features.roles": "Vai trò & Quyền hạn",
-  "plans.workspace.includesFrom.hobby": "Bao gồm tất cả trong Hobby, cộng thêm:",
+  "plans.workspace.includesFrom.free": "Bao gồm tất cả trong Hobby, cộng thêm:",
   "plans.workspace.maxMembers": "Tối đa {{count}} thành viên",
   "plans.workspace.noSharedCredits": "Không có tín dụng chia sẻ",
   "plans.workspace.sharedCredits": "~{{count}} Tín dụng / tháng",

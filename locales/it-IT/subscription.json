@@ -333,7 +333,7 @@
   "plans.unlimited": "Illimitato",
   "plans.workspace.features.inviteMembers": "Invita Membri",
   "plans.workspace.features.roles": "Ruoli e Permessi",
-  "plans.workspace.includesFrom.hobby": "Tutto in Hobby, più:",
+  "plans.workspace.includesFrom.free": "Tutto in Hobby, più:",
   "plans.workspace.maxMembers": "Fino a {{count}} membri",
   "plans.workspace.noSharedCredits": "Nessun credito condiviso",
   "plans.workspace.sharedCredits": "~{{count}} Crediti / mese",

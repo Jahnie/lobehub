@@ -333,7 +333,7 @@
   "plans.unlimited": "Неограничено",
   "plans.workspace.features.inviteMembers": "Поканете членове",
   "plans.workspace.features.roles": "Роли и разрешения",
-  "plans.workspace.includesFrom.hobby": "Всичко в Hobby, плюс:",
+  "plans.workspace.includesFrom.free": "Всичко в Hobby, плюс:",
   "plans.workspace.maxMembers": "До {{count}} членове",
   "plans.workspace.noSharedCredits": "Без споделени кредити",
   "plans.workspace.sharedCredits": "~{{count}} кредити / месец",

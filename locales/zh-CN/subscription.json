@@ -333,7 +333,7 @@
   "plans.unlimited": "无限制",
   "plans.workspace.features.inviteMembers": "邀请成员",
   "plans.workspace.features.roles": "角色与权限",
-  "plans.workspace.includesFrom.hobby": "包含免费版中的所有内容，以及：",
+  "plans.workspace.includesFrom.free": "包含免费版中的所有内容，以及：",
   "plans.workspace.maxMembers": "最多 {{count}} 名成员",
   "plans.workspace.noSharedCredits": "无共享积分",
   "plans.workspace.sharedCredits": "~{{count}} 积分 / 月",

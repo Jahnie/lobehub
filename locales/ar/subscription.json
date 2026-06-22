@@ -333,7 +333,7 @@
   "plans.unlimited": "غير محدود",
   "plans.workspace.features.inviteMembers": "دعوة الأعضاء",
   "plans.workspace.features.roles": "الأدوار والصلاحيات",
-  "plans.workspace.includesFrom.hobby": "كل شيء في Hobby، بالإضافة إلى:",
+  "plans.workspace.includesFrom.free": "كل شيء في Hobby، بالإضافة إلى:",
   "plans.workspace.maxMembers": "حتى {{count}} أعضاء",
   "plans.workspace.noSharedCredits": "لا توجد أرصدة مشتركة",
   "plans.workspace.sharedCredits": "~{{count}} أرصدة / شهريًا",

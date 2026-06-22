@@ -333,7 +333,7 @@
   "plans.unlimited": "Sınırsız",
   "plans.workspace.features.inviteMembers": "Üyeleri Davet Et",
   "plans.workspace.features.roles": "Roller ve İzinler",
-  "plans.workspace.includesFrom.hobby": "Hobby'deki her şey ve ayrıca:",
+  "plans.workspace.includesFrom.free": "Hobby'deki her şey ve ayrıca:",
   "plans.workspace.maxMembers": "En fazla {{count}} üye",
   "plans.workspace.noSharedCredits": "Paylaşılan kredi yok",
   "plans.workspace.sharedCredits": "~{{count}} Kredi / ay",

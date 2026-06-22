@@ -333,7 +333,7 @@
   "plans.unlimited": "Без ограничений",
   "plans.workspace.features.inviteMembers": "Пригласить участников",
   "plans.workspace.features.roles": "Роли и разрешения",
-  "plans.workspace.includesFrom.hobby": "Все в Hobby, плюс:",
+  "plans.workspace.includesFrom.free": "Все в Hobby, плюс:",
   "plans.workspace.maxMembers": "До {{count}} участников",
   "plans.workspace.noSharedCredits": "Нет общих кредитов",
   "plans.workspace.sharedCredits": "~{{count}} кредитов / мес",

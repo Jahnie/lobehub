@@ -333,7 +333,7 @@
   "plans.unlimited": "무제한",
   "plans.workspace.features.inviteMembers": "멤버 초대",
   "plans.workspace.features.roles": "역할 및 권한",
-  "plans.workspace.includesFrom.hobby": "Hobby 플랜의 모든 기능, 추가로:",
+  "plans.workspace.includesFrom.free": "Hobby 플랜의 모든 기능, 추가로:",
   "plans.workspace.maxMembers": "최대 {{count}}명 멤버",
   "plans.workspace.noSharedCredits": "공유 크레딧 없음",
   "plans.workspace.sharedCredits": "~{{count}} 크레딧 / 월",
