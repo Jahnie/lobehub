@@ -40,6 +40,7 @@ export interface WorkspaceSettingCategoryGroup {
 export const useWorkspaceSettingCategory = (): WorkspaceSettingCategoryGroup[] => {
   const { t } = useTranslation('setting');
   const { t: tAuth } = useTranslation('auth');
+  const { t: tSubscription } = useTranslation('subscription');
   const showApiKey = useShowWorkspaceApiKey();
 
   return useMemo(
@@ -70,26 +71,26 @@ export const useWorkspaceSettingCategory = (): WorkspaceSettingCategoryGroup[] =
           {
             icon: Map,
             key: WorkspaceSettingsTabs.Plans,
-            label: t('workspaceSetting.tab.plans'),
+            label: tSubscription('tab.plans'),
           },
           {
             icon: ChartColumnBigIcon,
             key: WorkspaceSettingsTabs.Usage,
-            label: t('workspaceSetting.tab.usage'),
+            label: t('tab.usage'),
           },
           {
             icon: Coins,
             key: WorkspaceSettingsTabs.Credits,
-            label: t('workspaceSetting.tab.credits'),
+            label: tSubscription('tab.credits'),
           },
           {
             icon: CreditCard,
             key: WorkspaceSettingsTabs.Billing,
-            label: t('workspaceSetting.tab.billing'),
+            label: tSubscription('tab.billing'),
           },
         ],
         key: WorkspaceSettingsGroupKey.Subscription,
-        title: t('workspaceSetting.group.subscription'),
+        title: t('group.subscription'),
       },
       {
         items: [
@@ -139,6 +140,6 @@ export const useWorkspaceSettingCategory = (): WorkspaceSettingCategoryGroup[] =
         title: t('workspaceSetting.group.admin'),
       },
     ],
-    [t, tAuth, showApiKey],
+    [t, tAuth, tSubscription, showApiKey],
   );
 };

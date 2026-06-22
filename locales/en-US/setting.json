@@ -1243,7 +1243,7 @@
   "workspace.billing.seats.failedToast": "Failed to update seats.",
   "workspace.billing.seats.save": "Save",
   "workspace.billing.seats.successToast": "Seats updated to {{seats}}.",
-  "workspace.billing.title": "Bills",
+  "workspace.billing.title": "Billing",
   "workspace.billing.totalHint": "Billed monthly · cancel anytime",
   "workspace.billing.totalLabel": "Total / month",
   "workspace.billingPage.billing.activeHint": "Cancel anytime — you keep access until the end of the cycle.",
@@ -2084,7 +2084,6 @@
   "workspaceSetting.group.admin": "Admin",
   "workspaceSetting.group.agent": "Agent",
   "workspaceSetting.group.general": "General",
-  "workspaceSetting.group.subscription": "Plans",
   "workspaceSetting.storage.comingSoon": "Workspace-scoped data import & export is coming soon.",
   "workspaceSetting.storage.danger.clear.desc": "Delete all data in this workspace, including agents, files, messages, and skills. The workspace itself will NOT be deleted.",
   "workspaceSetting.storage.danger.clear.title": "Clear Workspace Data",
@@ -2092,11 +2091,7 @@
   "workspaceSetting.storage.danger.reset.title": "Reset Workspace Settings",
   "workspaceSetting.storage.telemetry.desc": "Help us improve {{appName}} with anonymous workspace usage data",
   "workspaceSetting.storage.telemetry.title": "Send Anonymous Workspace Usage Data",
-  "workspaceSetting.tab.billing": "Bills",
-  "workspaceSetting.tab.credits": "Credits",
   "workspaceSetting.tab.general": "General",
   "workspaceSetting.tab.members": "Members",
-  "workspaceSetting.tab.plans": "Plans",
-  "workspaceSetting.tab.skill": "Skills",
-  "workspaceSetting.tab.usage": "Usage"
+  "workspaceSetting.tab.skill": "Skills"
 }
