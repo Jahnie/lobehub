@@ -173,6 +173,7 @@ const Content = memo<ContentProps>(({ open, searchKeyword }) => {
             status={topic.status}
             threadId={activeThreadId}
             title={topic.title}
+            userId={topic.userId}
           />
         </Flexbox>
       ))}

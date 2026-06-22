@@ -14,6 +14,7 @@ import { isDesktop } from '@/const/version';
 import DirIcon from '@/features/ChatInput/ControlBar/DirIcon';
 import { useHasDraft } from '@/features/ChatInput/draftStorage';
 import NavItem from '@/features/NavPanel/components/NavItem';
+import TopicCreatorAvatar from '@/features/TopicCreatorAvatar';
 import { buildWorkspaceAwarePath } from '@/features/Workspace/workspaceAwarePath';
 import { getPlatformIcon } from '@/routes/(main)/agent/channel/const';
 import { useAgentStore } from '@/store/agent';
@@ -149,10 +150,12 @@ interface TopicItemProps {
   status?: ChatTopicStatus | null;
   threadId?: string;
   title: string;
+  /** Creator of the topic; drives the workspace creator avatar. */
+  userId?: string;
 }
 
 const TopicItem = memo<TopicItemProps>(
-  ({ id, title, fav, active, threadId, metadata, status, showWorkingDirectory }) => {
+  ({ id, title, fav, active, threadId, metadata, status, showWorkingDirectory, userId }) => {
     const { t } = useTranslation('topic');
     const { isDarkMode } = useTheme();
     const activeAgentId = useAgentStore((s) => s.activeAgentId);
@@ -327,7 +330,6 @@ const TopicItem = memo<TopicItemProps>(
           disabled={editing}
           extra={<RunningElapsedTime agentId={activeAgentId} topicId={id} />}
           href={href}
-          slots={{ titlePrefix: draftPrefix }}
           title={title === '...' ? <DotsLoading gap={3} size={4} /> : title}
           titleColor={cssVar.colorText}
           icon={(() => {
@@ -380,6 +382,14 @@ const TopicItem = memo<TopicItemProps>(
               />
             );
           })()}
+          slots={{
+            titlePrefix: (
+              <>
+                <TopicCreatorAvatar userId={userId} />
+                {draftPrefix}
+              </>
+            ),
+          }}
           onClick={handleClick}
           onDoubleClick={() => void handleDoubleClick()}
         />

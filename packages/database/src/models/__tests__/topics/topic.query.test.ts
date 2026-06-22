@@ -305,6 +305,89 @@ describe('TopicModel - Query', () => {
       expect(result.items[1].id).toBe('group-topic-5');
     });
 
+    it('should return the creator userId for workspace group topics from multiple members', async () => {
+      // Workspace group topics are shared across members; the sidebar shows a
+      // creator avatar for topics authored by someone other than the viewer, so
+      // the query must surface each row's `userId` (the creator).
+      await serverDB.insert(workspaces).values({
+        id: 'topic-ws',
+        name: 'Workspace',
+        primaryOwnerId: userId,
+        slug: 'topic-ws',
+      });
+      await serverDB.transaction(async (tx) => {
+        await tx
+          .insert(chatGroups)
+          .values({ id: 'ws-group', title: 'WS Group', userId, workspaceId: 'topic-ws' });
+        await tx.insert(topics).values([
+          {
+            id: 'mine',
+            userId,
+            groupId: 'ws-group',
+            workspaceId: 'topic-ws',
+            updatedAt: new Date('2023-05-02'),
+          },
+          {
+            id: 'theirs',
+            userId: userId2,
+            groupId: 'ws-group',
+            workspaceId: 'topic-ws',
+            updatedAt: new Date('2023-05-01'),
+          },
+        ]);
+      });
+
+      // Query as `userId` scoped to the workspace — both members' topics return.
+      const result = await new TopicModel(serverDB, userId, 'topic-ws').query({
+        groupId: 'ws-group',
+      });
+
+      expect(result.items).toMatchObject([
+        { id: 'mine', userId },
+        { id: 'theirs', userId: userId2 },
+      ]);
+    });
+
+    it('should return the creator userId for workspace agent topics from multiple members', async () => {
+      // Workspace agents are shared; the sidebar shows a creator avatar for
+      // topics authored by another member, so the agentId-scoped query must
+      // surface each row's `userId` (the creator).
+      await serverDB.insert(workspaces).values({
+        id: 'topic-ws-agent',
+        name: 'Workspace',
+        primaryOwnerId: userId,
+        slug: 'topic-ws-agent',
+      });
+      await serverDB.transaction(async (tx) => {
+        await tx.insert(agents).values({ id: 'ws-agent', userId, workspaceId: 'topic-ws-agent' });
+        await tx.insert(topics).values([
+          {
+            id: 'agent-mine',
+            userId,
+            agentId: 'ws-agent',
+            workspaceId: 'topic-ws-agent',
+            updatedAt: new Date('2023-05-02'),
+          },
+          {
+            id: 'agent-theirs',
+            userId: userId2,
+            agentId: 'ws-agent',
+            workspaceId: 'topic-ws-agent',
+            updatedAt: new Date('2023-05-01'),
+          },
+        ]);
+      });
+
+      const result = await new TopicModel(serverDB, userId, 'topic-ws-agent').query({
+        agentId: 'ws-agent',
+      });
+
+      expect(result.items).toMatchObject([
+        { id: 'agent-mine', userId },
+        { id: 'agent-theirs', userId: userId2 },
+      ]);
+    });
+
     it('should return topics based on pagination parameters', async () => {
       await serverDB.insert(topics).values([
         { id: 'topic1', sessionId, userId, updatedAt: new Date('2023-01-01') },

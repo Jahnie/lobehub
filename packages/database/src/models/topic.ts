@@ -298,6 +298,10 @@ export class TopicModel {
                 status: topics.status,
                 title: topics.title,
                 updatedAt: topics.updatedAt,
+                // Creator id — in workspace mode the list mixes topics from all
+                // members, so the sidebar uses this to show a creator avatar for
+                // topics authored by someone other than the current user.
+                userId: topics.userId,
                 ...detailColumns,
               } as any)
               .from(topics)
@@ -360,6 +364,9 @@ export class TopicModel {
                 status: topics.status,
                 title: topics.title,
                 updatedAt: topics.updatedAt,
+                // Creator id — workspace agents are shared, so the sidebar shows
+                // a creator avatar for topics authored by another member.
+                userId: topics.userId,
                 ...detailColumns,
               } as any)
               .from(topics)
