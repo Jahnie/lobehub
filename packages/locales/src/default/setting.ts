@@ -1266,8 +1266,6 @@ When I am ___, I need ___
     "Your workspace's billing period will be changed from {{current}} to {{target}}.",
   'workspace.billingPage.billing.billingPeriodModal.cancelCta': 'Cancel',
   'workspace.billingPage.billing.billingPeriodModal.confirmCta': 'Change billing period',
-  'workspace.billingPage.billing.billingPeriodModal.proratedCharge':
-    'The new yearly billing period starts immediately. A prorated charge will be applied to your current payment method.',
   'workspace.billingPage.billing.billingPeriodModal.scheduledChange':
     'The change will take effect after the current period ends.',
   'workspace.billingPage.billing.billingPeriodModal.scheduledChangeWithDate':
@@ -1276,6 +1274,8 @@ When I am ___, I need ___
   'workspace.billingPage.billing.change.applyCta': 'Apply changes',
   'workspace.billingPage.billing.change.cancelScheduledHint':
     'Resume the subscription before changing plan or seats.',
+  'workspace.billingPage.billing.change.currentIntervalTag': 'Current',
+  'workspace.billingPage.billing.change.currentPlanWithInterval': 'Current plan · {{interval}}',
   'workspace.billingPage.billing.change.immediateChangeSeatReductionHint':
     'Reduce seats separately after this immediate plan change.',
   'workspace.billingPage.billing.change.minPurchasedSeatsHint':
@@ -1335,6 +1335,7 @@ When I am ___, I need ___
   'workspace.billingPage.billing.manage.cta': 'Manage',
   'workspace.billingPage.billing.manage.downgradeItem': 'Downgrade',
   'workspace.billingPage.billing.manage.resumeItem': 'Resume subscription',
+  'workspace.billingPage.billing.manage.switchToYearlyItem': 'Switch to yearly',
   'workspace.billingPage.billing.monthlyFeeLabel': '/ month',
   'workspace.billingPage.billing.intervalFeeLabel': '/ {{interval}}',
   'workspace.billingPage.billing.planBadge.active': 'Active',
@@ -1574,6 +1575,12 @@ When I am ___, I need ___
   'workspace.billingPage.usage.member.moreMembers_one': '{{count}} more member',
   'workspace.billingPage.usage.member.moreMembers_other': '{{count}} more members',
   'workspace.billingPage.usage.member.showLess': 'Show less',
+  'workspace.billingPage.usage.members.desc': 'Billable workspace seats in use',
+  'workspace.billingPage.usage.members.adjustSeats': 'Adjust seats',
+  'workspace.billingPage.usage.members.title': 'Members',
+  'workspace.billingPage.usage.members.unit_one': '{{count}} member',
+  'workspace.billingPage.usage.members.unit_other': '{{count}} members',
+  'workspace.billingPage.usage.members.usedTitle': 'Active members',
   'workspace.billingPage.usage.messages': 'Messages',
   'workspace.billingPage.usage.model.moreModels_one': '{{count}} more model',
   'workspace.billingPage.usage.model.moreModels_other': '{{count}} more models',
@@ -1878,7 +1885,7 @@ When I am ___, I need ___
   'workspace.invitePage.invitedEmail': 'Invited email',
   'workspace.invitePage.invitedTo': '{{inviter}} invited you to join the workspace',
   'workspace.invitePage.memberLimitSubtitle':
-    'This workspace already has {{limit}} members. Ask an owner to remove a member before joining.',
+    'This workspace already has {{limit}} members. Ask an owner to adjust seats in Billing or remove a member before joining.',
   'workspace.invitePage.memberLimitTitle': 'Workspace Is Full',
   'workspace.invitePage.notFoundSubtitle':
     'This invitation link is invalid. Double-check the URL or ask the team owner to send a new one.',
@@ -1923,8 +1930,8 @@ When I am ___, I need ___
     '{{success}} invited, {{failed}} failed. Check the addresses and try again.',
   'workspace.members.invite.success': 'Team members invited successfully.',
   'workspace.members.invite.title': 'Invite Members',
-  'workspace.members.invite.upgradeCta': 'Upgrade',
-  'workspace.members.invite.upgradeHint': 'Upgrade or add seats in Billing to invite more members.',
+  'workspace.members.invite.upgradeCta': 'Adjust seats',
+  'workspace.members.invite.upgradeHint': 'Adjust seats in Billing to invite more members.',
   'workspace.members.pending.empty': 'No pending invitations',
   'workspace.members.pending.expiresAt': 'Expires {{date}}',
   'workspace.members.pending.resend': 'Resend',
