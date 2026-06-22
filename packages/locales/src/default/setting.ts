@@ -1181,11 +1181,11 @@ When I am ___, I need ___
   'workspace.create.namePlaceholder': 'e.g. Acme Team',
   'workspace.create.submit': 'Create workspace',
   'workspace.billing.credits.label': 'Credits this month',
-  'workspace.billing.hobbyHint': 'Free workspace · shared monthly pool',
+  'workspace.billing.freeHint': 'Free workspace · shared monthly pool',
   'workspace.billing.platformLine': 'Pro Platform · monthly',
   'workspace.billing.plan.enterprise': 'Enterprise',
   'workspace.billing.plan.business': 'Business',
-  'workspace.billing.plan.hobby': 'Free',
+  'workspace.billing.plan.free': 'Free',
   'workspace.billing.plan.pro': 'Pro',
   'workspace.billing.seatLine': 'Additional seats × {{count}}',
   'workspace.billing.seats.cancel': 'Cancel',
@@ -1335,10 +1335,10 @@ When I am ___, I need ___
   'workspace.billingPage.billing.downgrade.confirmTitle': 'Downgrade to Solo?',
   'workspace.billingPage.billing.downgrade.failedToast': 'Failed to downgrade.',
   'workspace.billingPage.billing.downgrade.successToast': 'Workspace downgraded to Solo.',
-  'workspace.billingPage.billing.hobby.subtitle':
+  'workspace.billingPage.billing.free.subtitle':
     'Free workspace · shared monthly pool · no paid seats',
-  'workspace.billingPage.billing.hobby.title': 'Free workspace',
-  'workspace.billingPage.billing.hobby.upgradeCta': 'Upgrade to Pro',
+  'workspace.billingPage.billing.free.title': 'Free workspace',
+  'workspace.billingPage.billing.free.upgradeCta': 'Upgrade to Pro',
   'workspace.billingPage.billing.invoice.empty':
     'No invoices yet. Your first invoice will appear after the next renewal.',
   'workspace.billingPage.billing.invoice.emptyHint': 'Workspace created on {{date}}.',
@@ -1384,7 +1384,7 @@ When I am ___, I need ___
     'Currently {{count}} seats · ${{seatFee}} per extra seat / month',
   'workspace.billingPage.billing.seats.title': 'Seats',
   'workspace.billingPage.billing.subscriptionTitle': 'Subscription controls',
-  'workspace.billingPage.billing.currentPlan.descHobby': 'Free workspace for up to 3 members',
+  'workspace.billingPage.billing.currentPlan.descFree': 'Free workspace for up to 3 members',
   'workspace.billingPage.billing.currentPlan.descBusiness':
     'Business workspace with expanded credits and larger teams',
   'workspace.billingPage.billing.currentPlan.descPro':
@@ -1401,7 +1401,7 @@ When I am ___, I need ___
   'workspace.billingPage.credits.empty': 'No credit data yet',
   'workspace.billingPage.credits.hero.cycleHint': '{{from}} → {{to}}',
   'workspace.billingPage.credits.hero.percentOfTotal': '{{percent}}% of {{total}}',
-  'workspace.billingPage.credits.hero.planHobby': 'Free · 3 free members',
+  'workspace.billingPage.credits.hero.planFree': 'Free · 3 free members',
   'workspace.billingPage.credits.hero.planPro_one': 'Pro · {{count}} seat',
   'workspace.billingPage.credits.hero.planPro_other': 'Pro · {{count}} seats',
   'workspace.billingPage.credits.hero.poolDesc':
@@ -1441,7 +1441,7 @@ When I am ___, I need ___
   'workspace.billingPage.credits.status.cancelledDesc':
     'Subscription is scheduled to end on {{date}}. Credits will stop refreshing after that.',
   'workspace.billingPage.credits.balance.creditBalance': 'Top-up credits balance',
-  'workspace.billingPage.credits.balance.hobbyDesc':
+  'workspace.billingPage.credits.balance.freeDesc':
     'Free workspaces do not include subscription credits — top up below or upgrade to Pro.',
   'workspace.billingPage.credits.balance.link.history': 'Top-up history',
   'workspace.billingPage.credits.balance.link.usage': 'View usage',
@@ -1522,12 +1522,12 @@ When I am ___, I need ___
   'workspace.billingPage.plans.capacityOnly': 'Up to {{max}} seats',
   'workspace.billingPage.plans.downgradeToFreeCta': 'Downgrade',
   'workspace.billingPage.plans.headline': 'Choose a plan',
-  'workspace.billingPage.plans.hobbyCapacity': 'Up to 3 seats',
-  'workspace.billingPage.plans.hobbyCta': 'Free',
-  'workspace.billingPage.plans.hobbyCreditsHint': 'No monthly credits included',
-  'workspace.billingPage.plans.hobbyCreditsTooltip':
+  'workspace.billingPage.plans.freeCapacity': 'Up to 3 seats',
+  'workspace.billingPage.plans.freeCta': 'Free',
+  'workspace.billingPage.plans.freeCreditsHint': 'No monthly credits included',
+  'workspace.billingPage.plans.freeCreditsTooltip':
     'Free workspaces do not include monthly credits. Configure your own model API or top up credits as needed.',
-  'workspace.billingPage.plans.hobbyDesc':
+  'workspace.billingPage.plans.freeDesc':
     'For small teams getting started with workspace collaboration',
   'workspace.billingPage.plans.headerNote.active':
     'You are on the {{plan}} plan. If you have any questions or would like further support with your plan, <contact>contact us</contact>',
@@ -1987,8 +1987,8 @@ When I am ___, I need ___
   'workspace.upgradeModal.formDescription': 'Review the details below and confirm your upgrade.',
   'workspace.upgradeModal.formTitle': 'Upgrade {{name}} to {{plan}}',
   'workspace.upgradeModal.heading': 'Upgrade a workspace',
-  'workspace.upgradeModal.hobbyTag': 'Free',
-  'workspace.upgradeModal.noHobbyHint': "You don't own any Free workspaces to upgrade.",
+  'workspace.upgradeModal.freeTag': 'Free',
+  'workspace.upgradeModal.noFreeHint': "You don't own any Free workspaces to upgrade.",
   'workspace.upgradeModal.payFailed': 'Failed to start checkout',
   'workspace.upgradeModal.pickerLabel': 'Select a workspace',
   'workspace.upgradeModal.proTag': 'Pro',
@@ -2075,7 +2075,7 @@ When I am ___, I need ___
   'workspace.wizard.step2.details.title': 'Plan Details',
   'workspace.wizard.step2.createFree': 'Create workspace',
   'workspace.wizard.step2.createdToast': 'Workspace {{name}} created.',
-  'workspace.wizard.step2.hobbyAgreement':
+  'workspace.wizard.step2.freeAgreement':
     'The Free plan has no monthly credits. Top-ups or AutoTopUp are billed only after you confirm them.',
   'workspace.wizard.step2.header.description': 'Each workspace is billed separately.',
   'workspace.wizard.step2.header.title': 'Select Your Plan',
@@ -2083,24 +2083,24 @@ When I am ___, I need ___
     "You've reached the free workspace limit ({{limit}}). Upgrade to Pro to create more.",
   'workspace.wizard.step2.totalLimitReached':
     "You've reached the maximum of {{limit}} workspaces. Leave one before creating another.",
-  'workspace.wizard.step2.features.hobby.share': 'First 3 members are free, including you',
-  'workspace.wizard.step2.features.hobby.solo': 'Up to 3 members, no paid seats',
-  'workspace.wizard.step2.features.hobby.onDemand':
+  'workspace.wizard.step2.features.free.share': 'First 3 members are free, including you',
+  'workspace.wizard.step2.features.free.solo': 'Up to 3 members, no paid seats',
+  'workspace.wizard.step2.features.free.onDemand':
     'On-demand usage · Auto top-up (${{price}} / 1M credits)',
-  'workspace.wizard.step2.features.hobby.upgradable': 'Upgrade anytime for more seats',
+  'workspace.wizard.step2.features.free.upgradable': 'Upgrade anytime for more seats',
   'workspace.wizard.step2.features.pro.adminControls': 'Centralized billing, roles, and audit logs',
   'workspace.wizard.step2.features.pro.collaboration': 'Invite members · share agents and files',
   'workspace.wizard.step2.features.pro.onDemand':
     'On-demand usage · Auto top-up (${{price}} / 1M credits)',
   'workspace.wizard.step2.features.pro.priorityModels': 'Priority premium models',
   'workspace.wizard.step2.features.pro.support': 'Priority email support',
-  'workspace.wizard.step2.left.creditsHobbyHint': 'No monthly credits · pay as you go',
+  'workspace.wizard.step2.left.creditsFreeHint': 'No monthly credits · pay as you go',
   'workspace.wizard.step2.left.creditsLabel': 'Credits per month',
   'workspace.wizard.step2.left.creditsProHint': 'Shared workspace pool · seats do not add credits',
   'workspace.wizard.step2.left.freeHeadline': 'Free workspace',
   'workspace.wizard.step2.left.freeTagline': 'For up to 3 members. Upgrade later for more seats.',
   'workspace.wizard.step2.left.headline': 'Team workspace',
-  'workspace.wizard.step2.left.hobbyTopUpHint':
+  'workspace.wizard.step2.left.freeTopUpHint':
     'Top up anytime: ${{price}}/M ({{percent}}% above base, with no subscription fee)',
   'workspace.wizard.step2.left.proTagline': '${{fee}}/seat/month. Extra usage is billed on demand.',
   'workspace.wizard.step2.left.proTopUpHint':
@@ -2111,7 +2111,7 @@ When I am ___, I need ___
   'workspace.wizard.step2.pill.platformPerMonth': '${{fee}} / month',
   'workspace.wizard.step2.pill.seatPerMonth': '+${{fee}} / seat / month',
   'workspace.wizard.step2.plans.business': 'Business',
-  'workspace.wizard.step2.plans.hobby': 'Free',
+  'workspace.wizard.step2.plans.free': 'Free',
   'workspace.wizard.step2.plans.pro': 'Pro',
   'workspace.wizard.step2.seats.hint': 'Between {{min}} and {{max}} seats.',
   'workspace.wizard.step2.seats.label': 'Seats',
