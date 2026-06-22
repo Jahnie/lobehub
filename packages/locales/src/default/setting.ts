@@ -1303,24 +1303,25 @@ When I am ___, I need ___
     'A prorated charge will be applied immediately to your current payment method.',
   'workspace.billingPage.billing.upgradePlanModal.purchasedSeatsLine': 'Prepaid extra seats',
   'workspace.billingPage.billing.upgradePlanModal.resultBillingCta': 'View billing',
-  'workspace.billingPage.billing.upgradePlanModal.resultDesc':
-    'Your workspace seat update has been saved.',
+  'workspace.billingPage.billing.upgradePlanModal.resultDesc': 'Seat changes saved.',
   'workspace.billingPage.billing.upgradePlanModal.resultDoneCta': 'Done',
   'workspace.billingPage.billing.upgradePlanModal.resultInviteCta': 'Invite members',
-  'workspace.billingPage.billing.upgradePlanModal.resultPaymentCharged':
-    'The prorated seat fee has been charged to your current payment method.',
-  'workspace.billingPage.billing.upgradePlanModal.resultPaymentLabel': 'Payment result',
+  'workspace.billingPage.billing.upgradePlanModal.resultPaymentCharged': 'Prorated fee charged',
+  'workspace.billingPage.billing.upgradePlanModal.resultPaymentLabel': 'Payment',
   'workspace.billingPage.billing.upgradePlanModal.resultPaymentScheduled':
-    'No payment was charged. The change is scheduled for the next billing cycle.',
+    'Scheduled for next cycle, no charge',
   'workspace.billingPage.billing.upgradePlanModal.resultSeatsExpanded':
-    '{{seats}} total seats are available now, including {{purchasedSeats}} prepaid extra seats.',
-  'workspace.billingPage.billing.upgradePlanModal.resultSeatsLabel': 'Seat purchase result',
-  'workspace.billingPage.billing.upgradePlanModal.resultSeatsReduced':
-    '{{seats}} total seats will apply next billing cycle, including {{purchasedSeats}} prepaid extra seats.',
+    '{{seats}} seats available now',
+  'workspace.billingPage.billing.upgradePlanModal.resultSeatsLabel': 'Seats',
+  'workspace.billingPage.billing.upgradePlanModal.resultSeatsReduced': '{{seats}} seats next cycle',
   'workspace.billingPage.billing.upgradePlanModal.resultTitle': 'Seats updated',
   'workspace.billingPage.billing.upgradePlanModal.seatFeeSummary': '${{seatFee}}/seat/month',
   'workspace.billingPage.billing.upgradePlanModal.seatOnlySummary':
     '{{seats}} seats · ${{seatFee}}/seat/month',
+  'workspace.billingPage.billing.upgradePlanModal.scheduledChange':
+    'This change will take effect after the current billing cycle ends. You will not be charged now.',
+  'workspace.billingPage.billing.upgradePlanModal.scheduledTarget':
+    'Your workspace will change to the {{plan}} {{interval}} plan after the current billing cycle ends.',
   'workspace.billingPage.billing.upgradePlanModal.target':
     'Your workspace will upgrade immediately to the {{plan}} {{interval}} plan.',
   'workspace.billingPage.billing.upgradePlanModal.title': 'Upgrade?',
