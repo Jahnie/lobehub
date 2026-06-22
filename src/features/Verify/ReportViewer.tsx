@@ -467,7 +467,12 @@ const ReportViewer = memo(() => {
         {run.scenario !== 'coding' && run.goal && <Text type="secondary">{run.goal}</Text>}
         <ScopeBlock context={run.context} scenario={run.scenario} />
         {report?.summary && <Text type="secondary">{report.summary}</Text>}
-        <Flexbox horizontal align="center" gap={24}>
+        <Flexbox
+          horizontal
+          align="center"
+          gap={isMobile ? 16 : 24}
+          wrap={isMobile ? 'wrap' : 'nowrap'}
+        >
           <VerdictTag verdict={report?.verdict} />
           <Flexbox>
             <span className={styles.stat}>{report?.totalChecks ?? results.length}</span>
