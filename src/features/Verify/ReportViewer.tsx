@@ -182,17 +182,29 @@ const useStyles = createStyles(({ css, token }) => ({
     background: ${token.colorFillQuaternary};
   `,
   tableRow: css`
-    display: grid;
-    grid-template-columns: minmax(180px, 1.1fr) minmax(0, 2.4fr) 112px;
-    gap: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 
-    padding-block: 12px;
+    padding-block: 14px;
     padding-inline: 16px;
     border-block-end: 1px solid ${token.colorBorderSecondary};
 
     &:last-child {
       border-block-end: none;
     }
+  `,
+  /* The compact, aligned top tier of a row: Check / Evidence text / Result. */
+  tableRowMain: css`
+    display: grid;
+    grid-template-columns: minmax(180px, 1.1fr) minmax(0, 2.4fr) 112px;
+    gap: 16px;
+    align-items: start;
+  `,
+  /* Evidence artifacts break out to the row's full width so screenshots stay
+     prominent instead of being squeezed into the narrow Evidence column. */
+  tableRowEvidence: css`
+    padding-inline-start: 2px;
   `,
 }));
 
@@ -390,33 +402,44 @@ const ResultCard = memo<{ result: VerifyResultWithEvidence }>(({ result }) => {
   );
 });
 
-/** Desktop rendering of a single check — one table row (Check / Evidence / Result). */
+/**
+ * Desktop rendering of a single check. Top tier is a compact, aligned grid
+ * (Check / Evidence text / Result) so text-only checks stay one line tall and
+ * scannable; any evidence artifacts then break out to the row's full width
+ * below, keeping screenshots large and visible at a glance.
+ */
 const ResultRow = memo<{ result: VerifyResultWithEvidence }>(({ result }) => {
   const { styles } = useStyles();
   return (
     <div className={styles.tableRow}>
-      <Flexbox className={styles.tableCellTitle} gap={4}>
-        <Flexbox horizontal align={'center'} gap={6}>
-          <Text strong>{result.checkItemTitle || result.checkItemId}</Text>
-          {!result.required && <Tag>soft</Tag>}
+      <div className={styles.tableRowMain}>
+        <Flexbox className={styles.tableCellTitle} gap={4}>
+          <Flexbox horizontal align={'center'} gap={6}>
+            <Text strong>{result.checkItemTitle || result.checkItemId}</Text>
+            {!result.required && <Tag>soft</Tag>}
+          </Flexbox>
+          {result.suggestion && (
+            <Text fontSize={12} type="secondary">
+              {result.suggestion}
+            </Text>
+          )}
         </Flexbox>
-        {result.suggestion && (
-          <Text fontSize={12} type="secondary">
-            {result.suggestion}
-          </Text>
-        )}
-      </Flexbox>
-      <Flexbox className={styles.tableCellEvidence} gap={6}>
-        {result.toulmin?.evidence && (
-          <Text fontSize={13} type="secondary">
-            {result.toulmin.evidence}
-          </Text>
-        )}
-        <EvidenceList evidence={result.evidence} imageMaxHeight={200} />
-      </Flexbox>
-      <Flexbox className={styles.tableCellVerdict}>
-        <VerdictTag verdict={result.verdict ?? result.status} />
-      </Flexbox>
+        <Flexbox className={styles.tableCellEvidence} gap={6}>
+          {result.toulmin?.evidence && (
+            <Text fontSize={13} type="secondary">
+              {result.toulmin.evidence}
+            </Text>
+          )}
+        </Flexbox>
+        <Flexbox className={styles.tableCellVerdict}>
+          <VerdictTag verdict={result.verdict ?? result.status} />
+        </Flexbox>
+      </div>
+      {result.evidence.length > 0 && (
+        <Flexbox className={styles.tableRowEvidence}>
+          <EvidenceList evidence={result.evidence} imageMaxHeight={360} />
+        </Flexbox>
+      )}
     </div>
   );
 });
