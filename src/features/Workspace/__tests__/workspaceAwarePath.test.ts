@@ -31,6 +31,15 @@ describe('buildWorkspaceAwarePath', () => {
     expect(buildWorkspaceAwarePath('/acme/memory', 'acme')).toBe('/acme/memory');
   });
 
+  it('does not prefix paths already qualified by another workspace slug', () => {
+    expect(buildWorkspaceAwarePath('/test-team/agent/agent-1', 'acme')).toBe(
+      '/test-team/agent/agent-1',
+    );
+    expect(buildWorkspaceAwarePath('/test-team/settings/general', 'acme')).toBe(
+      '/test-team/settings/general',
+    );
+  });
+
   it('leaves relative paths alone (router resolves them)', () => {
     expect(buildWorkspaceAwarePath('memory', 'acme')).toBe('memory');
     expect(buildWorkspaceAwarePath('../tasks', 'acme')).toBe('../tasks');

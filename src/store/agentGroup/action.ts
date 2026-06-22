@@ -3,8 +3,9 @@ import isEqual from 'fast-deep-equal';
 import { produce } from 'immer';
 import { type StateCreator } from 'zustand/vanilla';
 
+import { getActiveWorkspaceId } from '@/business/client/hooks/useActiveWorkspaceId';
 import { type ChatGroupItem } from '@/database/schemas/chatGroup';
-import { mutate, useClientDataSWRWithSync } from '@/libs/swr';
+import { augmentKey, mutate, useClientDataSWRWithSync } from '@/libs/swr';
 import { groupKeys } from '@/libs/swr/keys';
 import { chatGroupService } from '@/services/chatGroup';
 import { getAgentStoreState } from '@/store/agent';
@@ -64,9 +65,22 @@ class ChatGroupInternalAction implements ResetableStore {
     );
   };
 
+  private buildWorkspaceScopedKey = (key: unknown): Parameters<typeof mutate>[0] =>
+    augmentKey(key, getActiveWorkspaceId()) as Parameters<typeof mutate>[0];
+
+  private removeStaleGroup = (groupId: string) => {
+    this.internal_dispatchChatGroup({ payload: groupId, type: 'deleteGroup' });
+  };
+
+  private isGroupNotFoundError = (error: unknown, groupId: string) =>
+    error instanceof Error && error.message === `Group ${groupId} not found`;
+
   internal_fetchGroupDetail = async (groupId: string) => {
     const groupDetail = await chatGroupService.getGroupDetail(groupId);
-    if (!groupDetail) return;
+    if (!groupDetail) {
+      this.removeStaleGroup(groupId);
+      return;
+    }
 
     // Update groupMap with full group detail including supervisorAgentId and agents
     this.internal_dispatchChatGroup({
@@ -139,11 +153,11 @@ class ChatGroupInternalAction implements ResetableStore {
   };
 
   refreshGroupDetail = async (groupId: string) => {
-    await mutate(groupKeys.detail(groupId));
+    await mutate(this.buildWorkspaceScopedKey(groupKeys.detail(groupId)));
   };
 
   refreshGroups = async () => {
-    await mutate(groupKeys.list(true));
+    await mutate(this.buildWorkspaceScopedKey(groupKeys.list(true)));
   };
 
   toggleGroupSetting = (open: boolean) => {
@@ -159,10 +173,18 @@ class ChatGroupInternalAction implements ResetableStore {
       enabled && groupId ? groupKeys.detail(groupId) : null,
       async () => {
         const groupDetail = await chatGroupService.getGroupDetail(groupId);
-        if (!groupDetail) throw new Error(`Group ${groupId} not found`);
+        if (!groupDetail) {
+          this.removeStaleGroup(groupId);
+          throw new Error(`Group ${groupId} not found`);
+        }
         return groupDetail;
       },
       {
+        onError: (error) => {
+          if (this.isGroupNotFoundError(error, groupId)) {
+            this.removeStaleGroup(groupId);
+          }
+        },
         onData: (groupDetail) => {
           if (!groupDetail) return;
 
