@@ -3,6 +3,7 @@ import { Hono } from 'hono';
 import { qstashAuth } from '../middlewares/qstashAuth';
 import { heartbeatTick } from './handlers/heartbeatTick';
 import { onTopicComplete } from './handlers/onTopicComplete';
+import { resultBridge } from './handlers/resultBridge';
 import { scheduleDispatch } from './handlers/scheduleDispatch';
 import { scheduleExecute } from './handlers/scheduleExecute';
 import { watchdog } from './handlers/watchdog';
@@ -10,6 +11,7 @@ import { watchdog } from './handlers/watchdog';
 const app = new Hono();
 
 app.post('/on-topic-complete', qstashAuth(), onTopicComplete);
+app.post('/result-bridge', qstashAuth(), resultBridge);
 app.post('/heartbeat-tick', qstashAuth(), heartbeatTick);
 app.post('/schedule-dispatch', qstashAuth(), scheduleDispatch);
 app.post('/schedule-execute', qstashAuth(), scheduleExecute);
