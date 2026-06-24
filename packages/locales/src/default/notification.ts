@@ -7,6 +7,9 @@ export default {
   'agent_cron_job_failed_title': 'Scheduled task failed',
   'billboard.learnMore': 'Learn more',
   'billboard.menuLabel': 'Announcements',
+  'credit_balance_low':
+    'Your credit balance is running low — about {{balance}} in credits remaining. Top up now to avoid interruptions while you work.',
+  'credit_balance_low_title': 'Your credit balance is running low',
   'image_generation_completed': 'Your image "{{prompt}}" is ready.',
   'image_generation_completed_title': 'Image generation completed',
   'inbox.archiveAll': 'Archive all',
